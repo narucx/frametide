@@ -1,4 +1,5 @@
 using System.Reflection;
+using Frametide.Core.Infrastructure;
 using Velopack;
 using Velopack.Sources;
 
@@ -9,11 +10,20 @@ public sealed class Updater
 {
     public const string RepoUrl = "https://github.com/narucx/frametide";
 
-    // A pre-release (e.g. 1.0.0-beta.1) also gets newer pre-releases; a stable version only stable releases.
-    private static readonly bool IsPrerelease =
+    private static readonly bool RunningPrerelease =
         typeof(Updater).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0].Contains('-') == true;
 
-    private readonly UpdateManager _manager = new(new GithubSource(RepoUrl, accessToken: null, prerelease: IsPrerelease));
+    /// <summary>
+    /// Also offer beta versions. The newest version wins either way, so a beta always gets the next stable release
+    /// (1.0.0 is newer than 1.0.0-beta.2). Default: on while a beta is installed.
+    /// </summary>
+    public static bool IncludeBetas
+    {
+        get => Settings.GetBool("BetaUpdates", RunningPrerelease);
+        set => Settings.Set("BetaUpdates", value);
+    }
+
+    private readonly UpdateManager _manager = new(new GithubSource(RepoUrl, accessToken: null, prerelease: IncludeBetas));
 
     public bool IsInstalled => _manager.IsInstalled;
 

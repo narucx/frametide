@@ -24,7 +24,9 @@
         </StackPanel>
         <StackPanel DockPanel.Dock="Bottom" Margin="24,0,20,20">
           <TextBlock Text="LANGUAGE" Style="{StaticResource Label}" Margin="0,0,0,6"/>
-          <ComboBox x:Name="LangCombo" Margin="0,0,0,12"/>
+          <ComboBox x:Name="LangCombo" Margin="0,0,0,10"/>
+          <CheckBox x:Name="BetaCheck" Content="Beta updates" FontSize="12" Margin="0,0,0,12"
+                    ToolTip="Also offer test versions. A beta always gets the next stable version as an update."/>
           <Button x:Name="UpdateButton" Style="{StaticResource Primary}" Margin="0,0,0,12" Visibility="Collapsed"/>
           <TextBlock x:Name="FooterText" FontSize="10" Foreground="{StaticResource Muted}"/>
         </StackPanel>

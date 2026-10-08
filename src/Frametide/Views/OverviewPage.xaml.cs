@@ -76,7 +76,7 @@ public partial class OverviewPage : UserControl
     {
         if (_gpu is not null && Nvidia.GetSnapshot() is { } g)
         {
-            GpuTemp.Text = $"{g.TempC} C";
+            GpuTemp.Text = $"{g.TempC} °C";
             GpuPower.Text = $"{g.PowerW:N0} W";
             GpuClock.Text = $"{g.ClockMHz} MHz";
             GpuUtil.Text = $"{g.Util} %";
@@ -94,7 +94,7 @@ public partial class OverviewPage : UserControl
             HwinfoHint.Visibility = h is null ? Visibility.Visible : Visibility.Collapsed;
             if (h is not null)
             {
-                CpuTemp.Text = h.TempC is { } t ? $"{t:N0} C" : "-";
+                CpuTemp.Text = h.TempC is { } t ? $"{t:N0} °C" : "-";
                 CpuTemp.Foreground = Brush(h.TempC >= 90 ? "Bad" : h.TempC >= 80 ? "Warn" : "Text");
                 CpuPower.Text = h.PowerW is { } p ? $"{p:N0} W" : "-";
                 CpuVcore.Text = h.Vcore is { } v ? $"{v:N3} V" : "-";

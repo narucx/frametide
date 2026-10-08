@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Added
+- Option "Beta updates" (below the language): also offer test versions; a beta always gets the next stable version
+
 ### Fixed
 - Beta versions now find newer beta versions as updates
 

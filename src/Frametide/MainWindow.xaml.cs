@@ -52,6 +52,14 @@ public partial class MainWindow : Window
         LangCombo.SelectedItem = LangCombo.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == Code);
         LangCombo.SelectionChanged += (_, _) => SwitchLanguage();
 
+        UpdateButton.Click += async (_, _) => await InstallUpdateAsync();
+        BetaCheck.IsChecked = Services.Updater.IncludeBetas;
+        BetaCheck.Click += async (_, _) =>
+        {
+            Services.Updater.IncludeBetas = BetaCheck.IsChecked == true;
+            await CheckForUpdateAsync();
+        };
+
         Log.LineAdded += OnLogLine;
         Closed += (_, _) => Log.LineAdded -= OnLogLine;
 
@@ -64,31 +72,39 @@ public partial class MainWindow : Window
         };
     }
 
+    private Services.Updater? _updater;
+    private Velopack.UpdateInfo? _update;
+
     /// <summary>Shows an "Update to vX" button when GitHub Releases has a newer version (installed copies only).</summary>
     private async Task CheckForUpdateAsync()
     {
-        var updater = new Services.Updater();
+        _update = null;
+        UpdateButton.Visibility = Visibility.Collapsed;
+        _updater = new Services.Updater();   // new instance: the beta setting may have changed
         try
         {
-            if (await updater.CheckAsync() is not { } update) return;
-            var version = update.TargetFullRelease.Version.ToString();
-            UpdateButton.Content = T("Update to v{0}", version);
+            if (await _updater.CheckAsync() is not { } update) return;
+            _update = update;
+            UpdateButton.Content = T("Update to v{0}", update.TargetFullRelease.Version);
             UpdateButton.Visibility = Visibility.Visible;
-            UpdateButton.Click += async (_, _) =>
-            {
-                UpdateButton.IsEnabled = false;
-                Log.Info($"Updating to v{version}.");
-                try { await updater.DownloadAndRestartAsync(update, p => Dispatcher.BeginInvoke(() => UpdateButton.Content = T("Downloading update ... {0} %", p))); }
-                catch (Exception e)
-                {
-                    Log.Error($"Update failed: {e.Message}");
-                    Info(T("The update could not be installed: {0}", e.Message), MessageBoxImage.Warning);
-                    UpdateButton.IsEnabled = true;
-                    UpdateButton.Content = T("Update to v{0}", version);
-                }
-            };
         }
         catch (Exception e) { Log.Warn($"Update check failed: {e.Message}"); }
+    }
+
+    private async Task InstallUpdateAsync()
+    {
+        if (_updater is null || _update is not { } update) return;
+        var version = update.TargetFullRelease.Version.ToString();
+        UpdateButton.IsEnabled = false;
+        Log.Info($"Updating to v{version}.");
+        try { await _updater.DownloadAndRestartAsync(update, p => Dispatcher.BeginInvoke(() => UpdateButton.Content = T("Downloading update ... {0} %", p))); }
+        catch (Exception e)
+        {
+            Log.Error($"Update failed: {e.Message}");
+            Info(T("The update could not be installed: {0}", e.Message), MessageBoxImage.Warning);
+            UpdateButton.IsEnabled = true;
+            UpdateButton.Content = T("Update to v{0}", version);
+        }
     }
 
     /// <summary>Dev: shows a page, waits for its data, saves the window as PNG and exits.</summary>
