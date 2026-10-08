@@ -1,9 +1,12 @@
 ﻿# Changelog
 
-## Unreleased
+## v0.1.0-beta.3
 
 ### Added
 - "Check for updates" button below the language; it also says when Frametide is up to date
+
+### Notes
+- Not code-signed yet: Windows SmartScreen shows a warning on the first start ("More info" > "Run anyway").
 
 ## v0.1.0-beta.2
 
