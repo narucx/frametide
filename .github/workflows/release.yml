@@ -43,7 +43,7 @@ jobs:
 
       - run: >
           vpk pack --packId Frametide --packVersion ${{ steps.ver.outputs.version }} --packDir publish
-          --mainExe Frametide.exe --packTitle Frametide --releaseNotes release-notes.md
+          --mainExe Frametide.exe --packTitle Frametide --icon src/Frametide/Assets/frametide.ico --releaseNotes release-notes.md
 
       - run: >
           vpk upload github --repoUrl https://github.com/${{ github.repository }} --publish

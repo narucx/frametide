@@ -29,7 +29,7 @@ public partial class MainWindow : Window
         [
             new("Overview", "System, live readings and hints at a glance.", () => new OverviewPage(this)),
             new("Tweaks & profiles", "Every tweak on/off individually. Original values are backed up, \"Revert\" restores exactly the previous state.", () => Tweaks),
-            new("Game Boost", "Temporary optimizations only while you play. STOP rolls everything back.", Placeholder),
+            new("Game Boost", "Temporary optimizations only while you play. STOP rolls everything back.", () => new GameBoostPage(this)),
             new("Benchmark", "FPS, 1% lows and stutters of your real game sessions, without and with Game Boost.", Placeholder),
             new("GPU & undervolt", "Live readings, automatic undervolting and profiles (NVIDIA, via NVML).", Placeholder),
             new("CS2", "Launch options, video settings, NVIDIA profile and server blocker.", Placeholder),
@@ -58,7 +58,7 @@ public partial class MainWindow : Window
         ((RadioButton)NavPanel.Children[0]).IsChecked = true;
         Loaded += async (_, _) =>
         {
-            if (Program.Preview is { } preview) { await RenderPreviewAsync(preview.Png, preview.Page); return; }
+            if (Program.Preview is { } preview) { await RenderPreviewAsync(preview.Png, preview.Page, preview.Height); return; }
             _ = CheckForUpdateAsync();
             await Tweaks.CheckAsync();
         };
@@ -92,10 +92,11 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Dev: shows a page, waits for its data, saves the window as PNG and exits.</summary>
-    private async Task RenderPreviewAsync(string png, string page)
+    private async Task RenderPreviewAsync(string png, string page, double height)
     {
         await Tweaks.CheckAsync();
         Navigate(page);
+        if (height > 0) { MaxHeight = height; Height = height; }
         await Task.Delay(1500);
         UpdateLayout();
         var root = (FrameworkElement)Content;
@@ -177,9 +178,7 @@ public partial class MainWindow : Window
         Settings.Language = code;
         Loc.Load(code);
         var fresh = new MainWindow { Left = Left, Top = Top, Width = Width, Height = Height, WindowState = WindowState };
-        Application.Current.MainWindow = fresh;
-        fresh.Show();
-        Close();
+        App.Current.ReplaceMain(fresh);
     }
 
 }

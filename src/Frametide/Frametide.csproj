@@ -4,13 +4,24 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
+    <!-- Only for the notification area icon (NotifyIcon). -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <!-- WFO0003 wants the DPI mode set through WinForms; this is a WPF app, which takes it from app.manifest. -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
     <!-- Dev only: "dotnet build -p:FtPreview=true" builds without the admin manifest for UI screenshots (preview argument, see Program.cs). -->
     <ApplicationManifest Condition="'$(FtPreview)' != 'true'">app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\frametide.ico</ApplicationIcon>
     <RootNamespace>Frametide</RootNamespace>
     <AssemblyName>Frametide</AssemblyName>
     <!-- Own Main (Program.cs) so Velopack's hooks run before WPF starts. -->
     <StartupObject>Frametide.Program</StartupObject>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- WinForms and WPF share many type names; WinForms types are always written fully qualified. -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Frametide.Core\Frametide.Core.csproj" />
@@ -19,6 +30,7 @@
   <ItemGroup>
     <!-- Translations: English text -> translated text. -->
     <EmbeddedResource Include="Lang\*.json" />
+    <Resource Include="Assets\*.ico" />
   </ItemGroup>
 
   <ItemGroup>

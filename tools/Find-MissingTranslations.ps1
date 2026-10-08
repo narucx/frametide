@@ -1,7 +1,7 @@
 # Dev tool: lists UI texts that have no entry in src/Frametide/Lang/<lang>.json.
 #   powershell -ExecutionPolicy Bypass -File tools\Find-MissingTranslations.ps1 -Lang de [-RemoveUnused]
-# Finds texts passed to T(...), Text(...), Button(...), Badge(...), Row(...), the tweak/repair/profile catalog
-# (Name, Description, BlockedHint) and static XAML texts (Text, Content, ToolTip).
+# Finds texts passed to T(...), RunAsync(...) (status bar), Text(...), Button(...), Badge(...), Row(...), the tweak/repair/profile catalog
+# (Name, Description, BlockedHint), ("text", Enum.Value) option tables and static XAML texts (Text, Content, ToolTip).
 # -RemoveUnused deletes entries whose text no longer appears anywhere in the source.
 param([string]$Lang = 'de', [switch]$RemoveUnused)
 
@@ -12,8 +12,9 @@ $map = (New-Object System.Web.Script.Serialization.JavaScriptSerializer).Deseria
 
 $str = '"((?:[^"\\]|\\.)*)"'
 $csPatterns = @(
-    "\bT\($str", "\bText\($str", "\bButton\($str", "\bBadge\($str", "\bRow\(""\w+"", $str", "\bRow\(null, $str",
-    "\bName = $str", "\bDescription = $str", "\bBlockedHint = $str", "new\(""[^""]+"",\s*$str", "^\s*new\($str"
+    "\bT\($str", "\bRunAsync\($str", "\bText\($str", "\bButton\($str", "\bBadge\($str", "\bRow\(""\w+"", $str", "\bRow\(null, $str",
+    "\bName = $str", "\bDescription = $str", "\bBlockedHint = $str", "new\(""[^""]+"",\s*$str", "^\s*new\($str",
+    "(?<=[\[,]\s*)\($str,\s*[A-Z]\w+\.[A-Z]\w+\)"
 )
 $found = New-Object System.Collections.Generic.HashSet[string]
 foreach ($f in Get-ChildItem (Join-Path $root 'src') -Recurse -Filter *.cs | Where-Object { $_.FullName -notmatch '\\(obj|bin)\\' }) {
@@ -40,7 +41,7 @@ foreach ($f in Get-ChildItem (Join-Path $root 'src') -Recurse -Filter *.xaml | W
     $text = [IO.File]::ReadAllText($f.FullName)
     foreach ($m in [regex]::Matches($text, '\b(?:Text|Content|ToolTip)="([^"{]+)"')) {
         $s = [System.Net.WebUtility]::HtmlDecode($m.Groups[1].Value)
-        if ($s -match '[A-Za-z]{2}' -and $s -notin 'FRAME', 'TIDE') { [void]$found.Add($s) }
+        if ($s -match '[A-Za-z]{2}' -and $s -notin 'FRAME', 'TIDE', 'START') { [void]$found.Add($s) }
     }
 }
 $missing = @($found | Where-Object { -not $map.ContainsKey($_) } | Sort-Object)

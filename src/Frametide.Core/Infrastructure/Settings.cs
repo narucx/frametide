@@ -40,5 +40,16 @@ public static class Settings
         }
     }
 
+    /// <summary>Changes several keys with one write.</summary>
+    public static void Update(Action<JsonObject> change)
+    {
+        lock (Gate)
+        {
+            var root = Load();
+            change(root);
+            JsonFile.WriteNode(AppPaths.Config, root);
+        }
+    }
+
     private static JsonObject Load() => JsonFile.ReadNode(AppPaths.Config) as JsonObject ?? [];
 }

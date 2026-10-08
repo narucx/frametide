@@ -103,6 +103,18 @@ public static class Reg
             root.DeleteSubKeyTree(sub, throwOnMissingSubKey: false);
     }
 
+    /// <summary>Deletes a key only when it has no values and no subkeys left.</summary>
+    public static void DeleteKeyIfEmpty(string path)
+    {
+        var (root, sub) = Parse(path);
+        using (root)
+        {
+            using (var key = root.OpenSubKey(sub))
+                if (key is null || key.ValueCount > 0 || key.SubKeyCount > 0) return;
+            root.DeleteSubKey(sub, throwOnMissingSubKey: false);
+        }
+    }
+
     /// <summary>Writes a value back as it was, or removes it when it did not exist.</summary>
     public static void Restore(string path, string name, RegValue original)
     {

@@ -1,7 +1,7 @@
 <Window x:Class="Frametide.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Frametide" Width="1280" Height="820" MinWidth="1050" MinHeight="640"
+        Title="Frametide" Icon="Assets/frametide.ico" Width="1280" Height="820" MinWidth="1050" MinHeight="640"
         WindowStartupLocation="CenterScreen" Background="{StaticResource Bg}" Foreground="{StaticResource Text}"
         FontFamily="Segoe UI" FontSize="13" UseLayoutRounding="True" SnapsToDevicePixels="True">
   <Grid Background="{StaticResource Bg}">

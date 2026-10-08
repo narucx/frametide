@@ -233,6 +233,23 @@ public static partial class CpuTopology
         return list;
     }
 
+    /// <summary>Affinity masks of processor group 0: all threads, the first core, and the fastest cores (P-cores on hybrid CPUs).</summary>
+    public sealed record Masks(ulong All, ulong Core0, ulong PCores, bool Hybrid);
+
+    public static Masks ReadMasks()
+    {
+        var cores = Read();
+        if (cores.Count == 0) return new Masks(0, 0, 0, false);
+        var best = cores.Max(c => c.Efficiency);
+        ulong all = 0, p = 0;
+        foreach (var c in cores)
+        {
+            all |= c.Mask;
+            if (c.Efficiency == best) p |= c.Mask;
+        }
+        return new Masks(all, cores[0].Mask, p, cores.Select(c => c.Efficiency).Distinct().Count() > 1);
+    }
+
     [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool GetLogicalProcessorInformationEx(int relationship, IntPtr buffer, ref uint length);

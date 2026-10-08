@@ -1,0 +1,100 @@
+<UserControl x:Class="Frametide.Views.GameBoostPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <StackPanel>
+    <Border Style="{StaticResource Card}" Padding="22">
+      <DockPanel>
+        <Button x:Name="Toggle" DockPanel.Dock="Right" Content="START" Style="{StaticResource Primary}" FontSize="20" Padding="46,16" Margin="0"/>
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock x:Name="StateText" Text="Game Boost is off" FontSize="20" FontWeight="SemiBold"/>
+          <TextBlock Foreground="{StaticResource Muted}" Margin="0,4,20,0"
+                     Text="START applies the settings below. STOP rolls everything back: power plan, launch priorities and suspended apps."/>
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <Border Style="{StaticResource Card}">
+      <StackPanel>
+        <TextBlock Text="Automation" Style="{StaticResource H2}"/>
+        <TextBlock Text="Frametide can run in the background (icon in the notification area) and switch Game Boost on and off by itself." Style="{StaticResource Sub}"/>
+        <CheckBox x:Name="AutoCheck" Content="Auto Game Boost: start when a game from the list starts, stop 20 s after it closes" Margin="0,4"/>
+        <CheckBox x:Name="TrayCheck" Content="Keep running in the notification area when the window is closed" Margin="0,4"/>
+        <CheckBox x:Name="AutostartCheck" Content="Start Frametide with Windows (in the notification area, no window)" Margin="0,4"/>
+        <TextBlock Foreground="{StaticResource Muted}" FontSize="12" Margin="0,8,0,0"
+                   Text="Anti-cheat friendly: in auto mode Frametide never opens or touches the game process. It only reads the process list (like Task Manager). The game priority is set through a Windows launch setting that Windows applies itself. Power plan and suspending other apps do not interact with the game."/>
+      </StackPanel>
+    </Border>
+
+    <Border Style="{StaticResource Card}">
+      <StackPanel>
+        <TextBlock Text="On start" Style="{StaticResource H2}"/>
+        <TextBlock Text="What happens on START. Changes are saved right away." Style="{StaticResource Sub}"/>
+        <Grid>
+          <Grid.ColumnDefinitions><ColumnDefinition Width="200"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+          <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+          <TextBlock Text="Power plan" VerticalAlignment="Center"/>
+          <ComboBox x:Name="PlanCombo" Grid.Column="1" Width="320" HorizontalAlignment="Left" Margin="0,4"/>
+          <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,10,0,0">
+            <CheckBox x:Name="DnsCheck" Content="Flush DNS cache" Margin="0,4"/>
+            <CheckBox x:Name="ShaderCheck" Content="Clear shader cache (not recommended, causes stutter while it rebuilds)" Margin="0,4"/>
+          </StackPanel>
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <Border Style="{StaticResource Card}">
+      <StackPanel>
+        <TextBlock Text="Games" Style="{StaticResource H2}"/>
+        <TextBlock Text="As soon as one of these games runs, Game Boost sets its priority and CPU cores. Recommended: priority 'Above normal', all cores. 'Without core 0' and 'P-cores only' are experiments: compare with a benchmark first." Style="{StaticResource Sub}"/>
+        <StackPanel x:Name="GameList"/>
+        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+          <TextBox x:Name="NewGame" Width="220" Margin="0,0,8,0" ToolTip="e.g. VALORANT-Win64-Shipping.exe"/>
+          <Button x:Name="AddGame" Content="Add game" Margin="0,0,8,0"/>
+          <Button x:Name="ScanGames" Content="Scan installed games" Style="{StaticResource Primary}" Margin="0"/>
+        </StackPanel>
+        <Border x:Name="ScanBox" Background="{StaticResource Panel2}" CornerRadius="10" Padding="14" Margin="0,12,0,0" Visibility="Collapsed">
+          <StackPanel>
+            <TextBlock Text="Found games" Style="{StaticResource H2}"/>
+            <TextBlock Text="Checked games are added with the recommended settings (priority 'Above normal', all cores). Games that are already in the list are not shown." Style="{StaticResource Sub}"/>
+            <StackPanel x:Name="ScanList" Margin="0,0,0,10"/>
+            <WrapPanel>
+              <Button x:Name="ScanAdd" Content="Add selected" Style="{StaticResource Primary}" Margin="0,0,8,0"/>
+              <Button x:Name="ScanClose" Content="Close" Margin="0"/>
+            </WrapPanel>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </Border>
+
+    <Border Style="{StaticResource Card}">
+      <StackPanel>
+        <TextBlock Text="Background apps" Style="{StaticResource H2}"/>
+        <TextBlock Text="One .exe per line. 'Close' ends the app. 'Suspend' pauses it completely (0 % CPU) and resumes it on STOP; good for browsers, launchers and updaters. Do not suspend Discord or voice chat." Style="{StaticResource Sub}"/>
+        <Grid>
+          <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="16"/><ColumnDefinition/></Grid.ColumnDefinitions>
+          <StackPanel>
+            <TextBlock Text="CLOSE" Style="{StaticResource Label}" Margin="0,0,0,6"/>
+            <TextBox x:Name="KillBox" Height="110" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Text="SUSPEND" Style="{StaticResource Label}" Margin="0,0,0,6"/>
+            <TextBox x:Name="SuspendBox" Height="110" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
+          </StackPanel>
+        </Grid>
+        <TextBlock x:Name="SavedText" Text="Saved." Foreground="{StaticResource Good}" FontSize="12" Margin="0,8,0,0" Visibility="Collapsed"/>
+      </StackPanel>
+    </Border>
+
+    <Border x:Name="LassoCard" Style="{StaticResource Card}" Visibility="Collapsed">
+      <StackPanel>
+        <TextBlock Text="Process Lasso" Style="{StaticResource H2}"/>
+        <TextBlock x:Name="LassoText" Style="{StaticResource Sub}"/>
+        <StackPanel x:Name="LassoConflicts" Margin="0,0,0,10"/>
+        <WrapPanel>
+          <Button x:Name="LassoFix" Content="Remove Lasso rules for my games" Margin="0,0,8,0"/>
+          <Button x:Name="LassoRefresh" Content="Re-check" Margin="0"/>
+        </WrapPanel>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>
