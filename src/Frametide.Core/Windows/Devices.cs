@@ -24,6 +24,21 @@ public static partial class Devices
 
     public static void Enable(string instanceId) => NativeProcess.Run("pnputil.exe", ["/enable-device", instanceId]);
 
+    public const uint PropertyDeviceDesc = 0x01, PropertyClass = 0x08, PropertyFriendlyName = 0x0D;   // CM_DRP_*
+
+    /// <summary>A string property of a device, also of one that is not connected (phantom), or null.</summary>
+    public static string? GetProperty(string instanceId, uint property)
+    {
+        if (CM_Locate_DevNodeW(out var node, instanceId, 1) != 0) return null;   // CM_LOCATE_DEVNODE_PHANTOM
+        var buffer = new byte[2048];
+        var length = (uint)buffer.Length;
+        if (CM_Get_DevNode_Registry_PropertyW(node, property, out _, buffer, ref length, 0) != 0 || length < 2) return null;
+        return System.Text.Encoding.Unicode.GetString(buffer, 0, (int)length).TrimEnd('\0');
+    }
+
+    [LibraryImport("cfgmgr32.dll")]
+    private static partial int CM_Get_DevNode_Registry_PropertyW(uint devInst, uint property, out uint type, [Out] byte[] buffer, ref uint length, uint flags);
+
     [LibraryImport("cfgmgr32.dll", StringMarshalling = StringMarshalling.Utf16)]
     private static partial int CM_Locate_DevNodeW(out uint devInst, string deviceId, uint flags);
 

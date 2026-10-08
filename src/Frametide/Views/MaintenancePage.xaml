@@ -1,0 +1,55 @@
+<UserControl x:Class="Frametide.Views.MaintenancePage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <StackPanel>
+    <UniformGrid Columns="2" Margin="-7,0">
+      <Border Style="{StaticResource Card}" Margin="7,0,7,14">
+        <StackPanel>
+          <TextBlock Text="Restore point" Style="{StaticResource H2}"/>
+          <TextBlock Text="Create one before bigger changes. Turns on System Restore for C: if it is off." Style="{StaticResource Sub}"/>
+          <Button x:Name="RestoreButton" Content="Create now" HorizontalAlignment="Left" Margin="0"/>
+        </StackPanel>
+      </Border>
+      <Border Style="{StaticResource Card}" Margin="7,0,7,14">
+        <StackPanel>
+          <TextBlock Text="Check system files (DISM + SFC)" Style="{StaticResource H2}"/>
+          <TextBlock Text="Runs in a separate window and can take 10-30 minutes. Do not cancel it while it is repairing." Style="{StaticResource Sub}"/>
+          <Button x:Name="SfcButton" Content="Start check" HorizontalAlignment="Left" Margin="0"/>
+        </StackPanel>
+      </Border>
+    </UniformGrid>
+
+    <Border Style="{StaticResource Card}">
+      <StackPanel>
+        <TextBlock Text="Autostart" Style="{StaticResource H2}"/>
+        <TextBlock Text="Programs that start with Windows (registry, Startup folder, scheduled tasks of other vendors). Unchecking disables them the same way Task Manager does, nothing is deleted. Leave security software, audio and mouse/keyboard tools on." Style="{StaticResource Sub}"/>
+        <StackPanel x:Name="StartupList" Margin="0,0,0,10"/>
+        <WrapPanel><Button x:Name="StartupScan" Content="Show autostart programs" Margin="0"/></WrapPanel>
+      </StackPanel>
+    </Border>
+
+    <Border Style="{StaticResource Card}">
+      <StackPanel>
+        <TextBlock Text="Disk cleanup" Style="{StaticResource H2}"/>
+        <TextBlock Text="Scan first, then pick categories. Files in use are skipped." Style="{StaticResource Sub}"/>
+        <StackPanel x:Name="CleanList" Margin="0,0,0,10"/>
+        <WrapPanel>
+          <Button x:Name="CleanScan" Content="Scan" Margin="0,0,8,0"/>
+          <Button x:Name="CleanRun" Content="Delete selected" Style="{StaticResource Danger}" Margin="0" IsEnabled="False"/>
+        </WrapPanel>
+      </StackPanel>
+    </Border>
+
+    <Border Style="{StaticResource Card}">
+      <StackPanel>
+        <TextBlock Text="Ghost devices" Style="{StaticResource H2}"/>
+        <TextBlock Text="Entries of devices that are no longer connected (old mice, headsets, USB sticks). Harmless, but clutter. They are detected again when reconnected." Style="{StaticResource Sub}"/>
+        <StackPanel x:Name="GhostList" Margin="0,0,0,10"/>
+        <WrapPanel>
+          <Button x:Name="GhostScan" Content="Scan" Margin="0,0,8,0"/>
+          <Button x:Name="GhostRemove" Content="Remove selected" Style="{StaticResource Danger}" Margin="0" IsEnabled="False"/>
+        </WrapPanel>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

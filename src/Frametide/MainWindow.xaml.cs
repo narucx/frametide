@@ -33,7 +33,7 @@ public partial class MainWindow : Window
             new("Benchmark", "FPS, 1% lows and stutters of your real game sessions, without and with Game Boost.", () => new BenchmarkPage(this)),
             new("GPU & undervolt", "Live readings, automatic undervolting and profiles (NVIDIA, via NVML).", () => new GpuPage(this)),
             new("CS2", "Launch options, video settings, NVIDIA profile and server blocker.", () => new Cs2Page(this)),
-            new("Maintenance", "Restore point, system files, cleanup and bloatware.", Placeholder),
+            new("Maintenance", "Restore point, system files, autostart, cleanup and ghost devices.", () => new MaintenancePage(this)),
             new("Log", "Everything Frametide has changed.", CreateLogPage),
         ];
 
@@ -126,15 +126,6 @@ public partial class MainWindow : Window
 
     public void Navigate(string title) =>
         NavPanel.Children.OfType<RadioButton>().ElementAt(Array.FindIndex(_nav, p => p.Title == title)).IsChecked = true;
-
-    private static UIElement Placeholder() => Card(new StackPanel
-    {
-        Children =
-        {
-            Text("Coming soon", 16, bold: true, margin: "0,0,0,4"),
-            Text("This page is not available in this version yet.", 13, "Muted"),
-        },
-    });
 
     private UIElement CreateLogPage()
     {

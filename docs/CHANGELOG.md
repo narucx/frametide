@@ -15,6 +15,7 @@
 - GPU and undervolt (NVIDIA): live readings, smart automatic undervolt with a built-in stress test that checks every result, manual clock offset, clock lock and power limit, profiles applied on Game Boost START or at sign-in, profile stress test
 - NVIDIA game profiles: prefer maximum performance and low latency mode for the games in the list, unlimited shader cache; Undo restores the previous driver values
 - CS2: launch option check, video settings overview, NVIDIA driver profile, server blocker (Windows Firewall rules per relay region)
+- Maintenance: restore point, system file check (DISM + SFC), autostart manager, disk cleanup, ghost devices
 - Notification area icon and start with Windows
 - Backup of every original value in an administrator-only data folder
 - English and German user interface
