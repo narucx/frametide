@@ -19,3 +19,15 @@ public sealed class StartupItemsTests
         Assert.Equal(Path.Combine(windows, "explorer.exe"), StartupItems.ExePath(@"%SystemRoot%\explorer.exe /n"), ignoreCase: true);
     }
 }
+
+public sealed class PreinstalledAppsTests
+{
+    [Theory]
+    [InlineData("*CandyCrush*", "king.com.CandyCrushSaga", true)]
+    [InlineData("*CandyCrush*", "king.com.BubbleWitch", false)]
+    [InlineData("Microsoft.People", "microsoft.people", true)]
+    [InlineData("Microsoft.People", "Microsoft.PeopleExperienceHost", false)]
+    [InlineData("Microsoft.Windows.DevHome", "MicrosoftXWindows.DevHome", false)]
+    public void Package_patterns(string pattern, string package, bool expected) =>
+        Assert.Equal(expected, Frametide.Core.Maintenance.PreinstalledApps.Matches(pattern, package));
+}

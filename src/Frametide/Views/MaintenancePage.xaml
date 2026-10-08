@@ -42,6 +42,19 @@
 
     <Border Style="{StaticResource Card}">
       <StackPanel>
+        <TextBlock Text="Preinstalled apps" Style="{StaticResource H2}"/>
+        <TextBlock Text="Removed for all users, also for accounts created later. Store, Xbox services, Calculator, Photos, Notepad and Terminal are deliberately not in the list. Removed apps can be reinstalled from the Microsoft Store." Style="{StaticResource Sub}"/>
+        <UniformGrid x:Name="AppList" Columns="2" Margin="0,0,0,10"/>
+        <WrapPanel>
+          <Button x:Name="AppScan" Content="Scan" Margin="0,0,8,0"/>
+          <Button x:Name="AppRecommended" Content="Select recommended" Margin="0,0,8,0" IsEnabled="False"/>
+          <Button x:Name="AppRemove" Content="Remove selected" Style="{StaticResource Danger}" Margin="0" IsEnabled="False"/>
+        </WrapPanel>
+      </StackPanel>
+    </Border>
+
+    <Border Style="{StaticResource Card}">
+      <StackPanel>
         <TextBlock Text="Ghost devices" Style="{StaticResource H2}"/>
         <TextBlock Text="Entries of devices that are no longer connected (old mice, headsets, USB sticks). Harmless, but clutter. They are detected again when reconnected." Style="{StaticResource Sub}"/>
         <StackPanel x:Name="GhostList" Margin="0,0,0,10"/>

@@ -43,6 +43,19 @@ public partial class MaintenancePage : UserControl
             CleanRun.IsEnabled = false;
             Info(T("Freed: {0}", Size(freed)));
         };
+        AppScan.Click += async (_, _) => ShowApps(await _main.RunAsync("Scanning apps", PreinstalledApps.Find) ?? []);
+        AppRecommended.Click += (_, _) =>
+        {
+            foreach (var c in AppList.Children.OfType<CheckBox>()) c.IsChecked = ((PreinstalledApp)c.Tag).Recommended;
+        };
+        AppRemove.Click += async (_, _) =>
+        {
+            var apps = Checked<PreinstalledApp>(AppList).ToList();
+            if (apps.Count == 0) return;
+            if (Ask(T("Remove {0} app(s) for all users?", apps.Count) + "\n\n" + string.Join(", ", apps.Select(a => T(a.Name))), icon: MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+            await _main.RunAsync("Removing apps", () => PreinstalledApps.Remove(apps));
+            ShowApps(await _main.RunAsync("Scanning apps", PreinstalledApps.Find) ?? []);
+        };
         GhostScan.Click += async (_, _) => ShowGhosts(await _main.RunAsync("Scanning ghost devices", GhostDevices.Find) ?? []);
         GhostRemove.Click += async (_, _) =>
         {
@@ -90,6 +103,18 @@ public partial class MaintenancePage : UserControl
                 IsChecked = i.Bytes > 0 && i.Category.Id is not "shader" and not "recycle",   // those two only on purpose
             });
         CleanRun.IsEnabled = items.Count > 0;
+    }
+
+    private void ShowApps(IReadOnlyList<PreinstalledApp> apps)
+    {
+        AppList.Children.Clear();
+        AppRecommended.IsEnabled = AppRemove.IsEnabled = apps.Count > 0;
+        if (apps.Count == 0) { AppList.Children.Add(Text("None of the listed apps are installed.", 13, "Good")); return; }
+        foreach (var a in apps)
+            AppList.Children.Add(new CheckBox
+            {
+                Content = a.Recommended ? $"{T(a.Name)}  {T("(recommended)")}" : T(a.Name), Tag = a, Margin = new Thickness(0, 4, 16, 4),
+            });
     }
 
     private void ShowGhosts(IReadOnlyList<GhostDevice> devices)
