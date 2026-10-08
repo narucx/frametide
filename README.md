@@ -11,6 +11,7 @@ Every change is backed up and can be reverted exactly; nothing is hidden, no tel
 
 Download `Frametide-win-Setup.exe` from the [latest release](https://github.com/narucx/frametide/releases/latest)
 and run it. Frametide asks for administrator rights when it starts (tweaks, services, GPU tuning).
+Requires Windows 10 version 2004 or newer, or Windows 11 (64-bit). GPU tuning needs an NVIDIA graphics card.
 
 ## Update
 

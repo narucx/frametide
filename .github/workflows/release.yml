@@ -1,6 +1,7 @@
 name: Release
 
-# A pushed tag vX.Y.Z builds, packs (Velopack) and publishes a GitHub release. The installed apps update from it.
+# A pushed tag vX.Y.Z (or vX.Y.Z-beta.N) builds, packs (Velopack) and publishes a GitHub release. The installed apps
+# update from it.
 on:
   push:
     tags: ['v*.*.*']
@@ -30,6 +31,8 @@ jobs:
           if (-not $m.Success) { throw "docs/CHANGELOG.md has no section '## v$v'" }
           Set-Content release-notes.md $m.Groups[1].Value.Trim()
           "version=$v" >> $env:GITHUB_OUTPUT
+          # Versions like 1.0.0-beta.1 are published as pre-releases (not offered as "latest").
+          "pre=$(if ($v.Contains('-')) { '--pre' })" >> $env:GITHUB_OUTPUT
 
       - run: dotnet test --solution Frametide.slnx -c Release
 
@@ -46,6 +49,6 @@ jobs:
           --mainExe Frametide.exe --packTitle Frametide --icon src/Frametide/Assets/frametide.ico --releaseNotes release-notes.md
 
       - run: >
-          vpk upload github --repoUrl https://github.com/${{ github.repository }} --publish
+          vpk upload github --repoUrl https://github.com/${{ github.repository }} --publish ${{ steps.ver.outputs.pre }}
           --releaseName "Frametide v${{ steps.ver.outputs.version }}" --tag ${{ github.ref_name }}
           --token ${{ secrets.GITHUB_TOKEN }}
