@@ -1,12 +1,16 @@
 ﻿# Changelog
 
-## Unreleased
+## v0.1.0-beta.2
 
 ### Added
 - Option "Beta updates" (below the language): also offer test versions; a beta always gets the next stable version
 
 ### Fixed
 - Beta versions now find newer beta versions as updates
+
+### Notes
+- Not code-signed yet: Windows SmartScreen shows a warning on the first start ("More info" > "Run anyway").
+- Version 0.1.0-beta.1 cannot find this update by itself: install this version once from the release page.
 
 ## v0.1.0-beta.1
 

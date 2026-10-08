@@ -1,7 +1,7 @@
 <Project>
   <!-- Shared settings for all projects. The version is the single source of truth for builds and releases. -->
   <PropertyGroup>
-    <Version>0.1.0-beta.1</Version>
+    <Version>0.1.0-beta.2</Version>
     <Product>Frametide</Product>
     <Authors>Henri</Authors>
     <Copyright>Copyright (C) 2026 Henri. Licensed under the GNU GPL v3.</Copyright>
