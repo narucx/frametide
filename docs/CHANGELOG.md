@@ -1,6 +1,6 @@
 ﻿# Changelog
 
-## Unreleased
+## v0.1.0-beta.1
 
 ### Added
 - Tweaks: 31 optimizations (gaming, power, network, privacy, ads and AI, Explorer), each on/off with an exact revert
@@ -20,3 +20,7 @@
 - Backup of every original value in an administrator-only data folder
 - English and German user interface
 - Updates via GitHub Releases
+
+### Notes
+- Test release. The files are not code-signed yet: Windows SmartScreen shows a warning on the first start ("More info" > "Run anyway").
+- Requires Windows 10 version 2004 or newer, or Windows 11 (64-bit).
