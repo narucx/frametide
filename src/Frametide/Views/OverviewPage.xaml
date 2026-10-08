@@ -1,0 +1,75 @@
+<UserControl x:Class="Frametide.Views.OverviewPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <StackPanel>
+    <UniformGrid Columns="4" Margin="-7,0">
+      <Border Style="{StaticResource Card}" Margin="7,0,7,14"><StackPanel>
+        <TextBlock Text="CPU" Style="{StaticResource Label}"/>
+        <TextBlock x:Name="InfoCpu" FontSize="15" FontWeight="SemiBold" Margin="0,6,0,2" Text="-"/>
+        <TextBlock x:Name="InfoCpu2" Foreground="{StaticResource Muted}"/></StackPanel></Border>
+      <Border Style="{StaticResource Card}" Margin="7,0,7,14"><StackPanel>
+        <TextBlock Text="GPU" Style="{StaticResource Label}"/>
+        <TextBlock x:Name="InfoGpu" FontSize="15" FontWeight="SemiBold" Margin="0,6,0,2" Text="-"/>
+        <TextBlock x:Name="InfoGpu2" Foreground="{StaticResource Muted}"/></StackPanel></Border>
+      <Border Style="{StaticResource Card}" Margin="7,0,7,14"><StackPanel>
+        <TextBlock Text="MEMORY" Style="{StaticResource Label}"/>
+        <TextBlock x:Name="InfoRam" FontSize="15" FontWeight="SemiBold" Margin="0,6,0,2" Text="-"/>
+        <TextBlock x:Name="InfoRam2" Foreground="{StaticResource Muted}"/></StackPanel></Border>
+      <Border Style="{StaticResource Card}" Margin="7,0,7,14"><StackPanel>
+        <TextBlock Text="SYSTEM" Style="{StaticResource Label}"/>
+        <TextBlock x:Name="InfoOs" FontSize="15" FontWeight="SemiBold" Margin="0,6,0,2" Text="-"/>
+        <TextBlock x:Name="InfoOs2" Foreground="{StaticResource Muted}"/></StackPanel></Border>
+    </UniformGrid>
+
+    <Border x:Name="GpuCard" Style="{StaticResource Card}">
+      <StackPanel>
+        <TextBlock Text="GPU live" Style="{StaticResource H2}"/>
+        <UniformGrid Columns="5" Margin="0,10,0,0">
+          <StackPanel><TextBlock Text="TEMPERATURE" Style="{StaticResource Label}"/><TextBlock x:Name="GpuTemp" Style="{StaticResource Big}" Text="-"/></StackPanel>
+          <StackPanel><TextBlock Text="POWER" Style="{StaticResource Label}"/><TextBlock x:Name="GpuPower" Style="{StaticResource Big}" Text="-"/></StackPanel>
+          <StackPanel><TextBlock Text="GPU CLOCK" Style="{StaticResource Label}"/><TextBlock x:Name="GpuClock" Style="{StaticResource Big}" Text="-"/></StackPanel>
+          <StackPanel><TextBlock Text="LOAD" Style="{StaticResource Label}"/><TextBlock x:Name="GpuUtil" Style="{StaticResource Big}" Text="-"/></StackPanel>
+          <StackPanel><TextBlock Text="CLOCK OFFSET" Style="{StaticResource Label}"/><TextBlock x:Name="GpuOffset" Style="{StaticResource Big}" Text="-"/></StackPanel>
+        </UniformGrid>
+      </StackPanel>
+    </Border>
+
+    <Border Style="{StaticResource Card}">
+      <StackPanel>
+        <TextBlock Text="CPU live" Style="{StaticResource H2}"/>
+        <UniformGrid Columns="6" Margin="0,10,0,0">
+          <StackPanel><TextBlock Text="LOAD" Style="{StaticResource Label}"/><TextBlock x:Name="CpuLoad" Style="{StaticResource Big}" Text="-"/></StackPanel>
+          <StackPanel><TextBlock Text="AVG CLOCK" Style="{StaticResource Label}"/><TextBlock x:Name="CpuAvg" Style="{StaticResource Big}" Text="-"/></StackPanel>
+          <StackPanel><TextBlock Text="FASTEST CORE" Style="{StaticResource Label}"/><TextBlock x:Name="CpuMax" Style="{StaticResource Big}" Text="-"/></StackPanel>
+          <StackPanel><TextBlock Text="TEMPERATURE" Style="{StaticResource Label}"/><TextBlock x:Name="CpuTemp" Style="{StaticResource Big}" Text="-"/></StackPanel>
+          <StackPanel><TextBlock Text="PACKAGE POWER" Style="{StaticResource Label}"/><TextBlock x:Name="CpuPower" Style="{StaticResource Big}" Text="-"/></StackPanel>
+          <StackPanel><TextBlock Text="VCORE" Style="{StaticResource Label}"/><TextBlock x:Name="CpuVcore" Style="{StaticResource Big}" Text="-"/></StackPanel>
+        </UniformGrid>
+        <DockPanel x:Name="HwinfoHint" Margin="0,10,0,0">
+          <Button x:Name="HwinfoDownload" DockPanel.Dock="Right" Content="Download HWiNFO" Margin="8,0,0,0" VerticalAlignment="Top"/>
+          <TextBlock Foreground="{StaticResource Muted}" FontSize="12" Text="Temperature, package power and Vcore need HWiNFO (free) running in the background with 'Shared Memory Support' enabled (Settings > General). Frametide only reads these values and never changes CPU settings."/>
+        </DockPanel>
+      </StackPanel>
+    </Border>
+
+    <Border Style="{StaticResource Card}">
+      <StackPanel>
+        <TextBlock Text="Status &amp; hints" Style="{StaticResource H2}"/>
+        <StackPanel x:Name="Hints" Margin="0,8,0,12"/>
+        <WrapPanel>
+          <Button x:Name="CreateRestore" Content="Create restore point" Margin="0,0,8,8"/>
+          <Button x:Name="ApplyRecommended" Content="Apply recommended profile" Style="{StaticResource Primary}" Margin="0,0,8,8"/>
+          <Button x:Name="GoTweaks" Content="Go to tweaks" Margin="0,0,8,8"/>
+        </WrapPanel>
+      </StackPanel>
+    </Border>
+
+    <Border Style="{StaticResource Card}">
+      <StackPanel>
+        <TextBlock Text="System check" Style="{StaticResource H2}"/>
+        <TextBlock Text="BIOS and Windows settings that matter for gaming. Read-only: Frametide shows where to change them, it does not change BIOS settings." Style="{StaticResource Sub}"/>
+        <StackPanel x:Name="Checks"/>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

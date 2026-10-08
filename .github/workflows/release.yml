@@ -1,0 +1,51 @@
+name: Release
+
+# A pushed tag vX.Y.Z builds, packs (Velopack) and publishes a GitHub release. The installed apps update from it.
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Check version, extract release notes
+        id: ver
+        shell: pwsh
+        run: |
+          $v = '${{ github.ref_name }}'.TrimStart('v')          # Velopack versions have no "v"
+          $props = [xml](Get-Content Directory.Build.props)
+          $declared = "$($props.Project.PropertyGroup.Version)".Trim()
+          if ($declared -ne $v) { throw "Tag v$v does not match <Version> $declared in Directory.Build.props" }
+          $text = Get-Content docs/CHANGELOG.md -Raw
+          $m = [regex]::Match($text, "(?ms)^## v$([regex]::Escape($v))\s*\r?\n(.*?)(?=^## v|\z)")
+          if (-not $m.Success) { throw "docs/CHANGELOG.md has no section '## v$v'" }
+          Set-Content release-notes.md $m.Groups[1].Value.Trim()
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - run: dotnet test --solution Frametide.slnx -c Release
+
+      - run: dotnet publish src/Frametide/Frametide.csproj -c Release -r win-x64 --self-contained -o publish
+
+      - run: dotnet tool install -g vpk
+
+      # Previous release for delta updates; there is none before the first release.
+      - run: vpk download github --repoUrl https://github.com/${{ github.repository }} --token ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - run: >
+          vpk pack --packId Frametide --packVersion ${{ steps.ver.outputs.version }} --packDir publish
+          --mainExe Frametide.exe --packTitle Frametide --releaseNotes release-notes.md
+
+      - run: >
+          vpk upload github --repoUrl https://github.com/${{ github.repository }} --publish
+          --releaseName "Frametide v${{ steps.ver.outputs.version }}" --tag ${{ github.ref_name }}
+          --token ${{ secrets.GITHUB_TOKEN }}

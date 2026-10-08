@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Frametide.Core/Frametide.Core.csproj" />
+    <Project Path="src/Frametide/Frametide.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Frametide.Tests/Frametide.Tests.csproj" />
+  </Folder>
+</Solution>

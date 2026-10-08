@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <!-- Dev only: "dotnet build -p:FtPreview=true" builds without the admin manifest for UI screenshots (preview argument, see Program.cs). -->
+    <ApplicationManifest Condition="'$(FtPreview)' != 'true'">app.manifest</ApplicationManifest>
+    <RootNamespace>Frametide</RootNamespace>
+    <AssemblyName>Frametide</AssemblyName>
+    <!-- Own Main (Program.cs) so Velopack's hooks run before WPF starts. -->
+    <StartupObject>Frametide.Program</StartupObject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Frametide.Core\Frametide.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Translations: English text -> translated text. -->
+    <EmbeddedResource Include="Lang\*.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Velopack" Version="1.2.161" />
+  </ItemGroup>
+
+</Project>
