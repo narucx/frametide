@@ -36,6 +36,7 @@ public partial class App : Application
     {
         base.OnStartup(e);
         L.Translator = (text, args) => T(text, args);   // status texts from Core in the UI language
+        Core.Bench.FpsLimits.Providers.Add(NvidiaProfiles.FpsLimitsFor);
         if (Program.Preview is not null)
         {
             AppPaths.UseDataDir(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "frametide-preview"));

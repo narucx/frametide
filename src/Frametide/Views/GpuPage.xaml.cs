@@ -49,6 +49,20 @@ public partial class GpuPage : UserControl
         UvStart.Click += (_, _) => StartUndervolt();
         UvCancel.Click += (_, _) => GpuTests.Cancel();
         TestCancel.Click += (_, _) => GpuTests.Cancel();
+        NvReload.Click += async (_, _) => await LoadNvAsync();
+        NvOptimize.Click += async (_, _) =>
+        {
+            var globalNormal = NvGlobalCheck.IsChecked == true;
+            if (await _main.RunAsync("NVIDIA profiles", () => { NvidiaProfiles.Optimize(globalNormal); return true; }))
+                Info(T("NVIDIA profiles optimized. Takes effect the next time each game starts."));
+            await LoadNvAsync();
+        };
+        NvUndo.Click += async (_, _) =>
+        {
+            if (Ask(T("Restore the NVIDIA profiles to the values before Frametide changed them?")) != MessageBoxResult.Yes) return;
+            await _main.RunAsync("NVIDIA profiles", NvidiaProfiles.Undo);
+            await LoadNvAsync();
+        };
 
         _timer.Tick += (_, _) => Tick();
         Loaded += async (_, _) =>
@@ -75,9 +89,10 @@ public partial class GpuPage : UserControl
         if (info is null)
         {
             GpuName.Text = T("No NVIDIA GPU found. GPU tuning is only available for NVIDIA.");
-            foreach (var card in new[] { UvCard, ManualCard, ProfilesCard }) card.Visibility = Visibility.Collapsed;
+            foreach (var card in new[] { UvCard, ManualCard, ProfilesCard, NvCard }) card.Visibility = Visibility.Collapsed;
             return;
         }
+        _ = LoadNvAsync();
         GpuName.Text = T("{0}  |  Driver {1}  |  Offset range {2} to +{3} MHz", info.Name, info.Driver, info.OffsetMinMHz, info.OffsetMaxMHz);
         if (!info.OffsetSupported) { UvStart.IsEnabled = false; Show(UvStatus, T("The driver does not support clock offsets through NVML.")); }
         ManPower.Minimum = info.PowerMinW;
@@ -89,6 +104,53 @@ public partial class GpuPage : UserControl
         ShowProfiles();
         Tick();
     }
+
+    /// <summary>Reads the driver profiles. Errors (e.g. an old driver) are shown in the card, not as a message box.</summary>
+    private async Task LoadNvAsync()
+    {
+        NvList.Children.Clear();
+        NvStatus? st = null;
+        string? error = null;
+        await Task.Run(() =>
+        {
+            try { st = NvidiaProfiles.Status(); }
+            catch (InvalidOperationException e) { error = e.Message; }
+        });
+        if (st is null)
+        {
+            NvList.Children.Add(Text(T("NVIDIA driver profiles are not available: {0}", error), 12, "Muted", translate: false));
+            NvOptimize.IsEnabled = NvUndo.IsEnabled = false;
+            return;
+        }
+        NvList.Children.Add(Row(st.GlobalPState == 1 ? "Warn" : "Good", T("Global profile"),
+            T("Power management: {0}  |  Shader cache: {1}  |  V-Sync: {2}", PowerText(st.GlobalPState), ShaderText(st.GlobalShaderCache), VsyncText(st.GlobalVsync)),
+            [], "0,0,0,10", translate: false));
+        foreach (var g in st.Games)
+        {
+            var desc = g.Profile is null
+                ? T("No driver profile for {0} yet. Frametide creates 'Frametide - {1}'.", g.Exe, g.Game)
+                : T("Profile '{0}': power management {1}, low latency mode {2}", g.Profile, PowerText(g.PState), PrerenderText(g.Prerender));
+            UIElement[] right = g.Optimized ? [Badge("Optimized", "Good", "GoodSoft")] : [];
+            NvList.Children.Add(Row(g.Optimized ? "Good" : "Muted", g.Game, desc, right, "0,0,0,8", translate: false));
+        }
+        NvOptimize.IsEnabled = st.Games.Count > 0;
+        NvUndo.IsEnabled = st.HasUndo;
+    }
+
+    private static string PowerText(uint? v) => v switch
+    {
+        null => T("Driver default"), 0 => "Adaptive", 1 => T("Prefer maximum performance"), 2 => T("Driver controlled"),
+        3 => T("Prefer consistent performance"), 5 => "Normal", _ => v.ToString()!,
+    };
+
+    private static string PrerenderText(uint? v) => v switch { null => T("Driver default"), 0 => T("Off (app decides)"), 1 => T("On"), _ => T("{0} frames", v) };
+
+    private static string ShaderText(uint? v) => v switch { null => T("Driver default"), uint.MaxValue => T("Unlimited"), 0 => T("Off"), _ => $"{v} MB" };
+
+    private static string VsyncText(uint? v) => v switch
+    {
+        null => T("Driver default"), 0x08416747 => T("Forced off"), NvidiaProfiles.VsyncForcedOn => T("Forced on"), 0x60925292 => T("App decides"), _ => $"0x{v:X}",
+    };
 
     private void Tick()
     {

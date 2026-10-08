@@ -27,7 +27,7 @@ public static partial class FpsLimits
         foreach (var source in Providers.Append(Cs2Limits).Append(UnrealLimits))
         {
             try { found.AddRange(source(exe)); }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException or FormatException) { }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or FormatException or InvalidOperationException) { }
         }
         return found;
     }

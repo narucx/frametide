@@ -117,5 +117,19 @@
         <TextBlock x:Name="TestLive" Visibility="Collapsed" Margin="0,4,0,0" Foreground="{StaticResource Muted}" FontFamily="Consolas"/>
       </StackPanel>
     </Border>
+
+    <Border x:Name="NvCard" Style="{StaticResource Card}">
+      <StackPanel>
+        <TextBlock Text="NVIDIA game profiles" Style="{StaticResource H2}"/>
+        <TextBlock Text="Sets 'Power management: prefer maximum performance' and 'Low latency mode: On' in the driver profile of every game in your Game Boost list, and the shader cache to unlimited. Games with NVIDIA Reflex use Reflex instead of the low latency mode. ShadowPlay, the overlay and the NVIDIA App are not touched. Undo restores the previous values." Style="{StaticResource Sub}"/>
+        <CheckBox x:Name="NvGlobalCheck" IsChecked="True" Margin="0,0,0,10" Content="Set the GLOBAL power management back to 'Normal' (lower power on the desktop; your games keep maximum performance through their own profile)"/>
+        <StackPanel x:Name="NvList" Margin="0,0,0,10"/>
+        <WrapPanel>
+          <Button x:Name="NvOptimize" Content="Optimize game profiles" Style="{StaticResource Primary}" Margin="0,0,8,8"/>
+          <Button x:Name="NvUndo" Content="Undo" Margin="0,0,8,8"/>
+          <Button x:Name="NvReload" Content="Reload" Margin="0,0,8,8"/>
+        </WrapPanel>
+      </StackPanel>
+    </Border>
   </StackPanel>
 </UserControl>
