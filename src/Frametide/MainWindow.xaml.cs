@@ -31,7 +31,7 @@ public partial class MainWindow : Window
             new("Tweaks & profiles", "Every tweak on/off individually. Original values are backed up, \"Revert\" restores exactly the previous state.", () => Tweaks),
             new("Game Boost", "Temporary optimizations only while you play. STOP rolls everything back.", () => new GameBoostPage(this)),
             new("Benchmark", "FPS, 1% lows and stutters of your real game sessions, without and with Game Boost.", () => new BenchmarkPage(this)),
-            new("GPU & undervolt", "Live readings, automatic undervolting and profiles (NVIDIA, via NVML).", Placeholder),
+            new("GPU & undervolt", "Live readings, automatic undervolting and profiles (NVIDIA, via NVML).", () => new GpuPage(this)),
             new("CS2", "Launch options, video settings, NVIDIA profile and server blocker.", Placeholder),
             new("Maintenance", "Restore point, system files, cleanup and bloatware.", Placeholder),
             new("Log", "Everything Frametide has changed.", CreateLogPage),

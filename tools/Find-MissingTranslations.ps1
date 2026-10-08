@@ -15,7 +15,7 @@ $str = '"((?:[^"\\]|\\.)*)"'
 $csPatterns = @(
     "\bT\($str", "\bRunAsync\($str", "\bText\($str", "\bButton\($str", "\bBadge\($str", "\bRow\(""\w+"", $str", "\bRow\(null, $str",
     "\bName = $str", "\bDescription = $str", "\bBlockedHint = $str", "new\(""[^""]+"",\s*$str", "^\s*new\($str",
-    "(?<=[\[,]\s*)\($str,\s*[A-Z]\w+\.[A-Z]\w+\)", "new FpsLimit\($str", "\[""[^""]+""\] = $str"
+    "(?<=[\[,]\s*)\($str,\s*[A-Z]\w+\.[A-Z]\w+\)", "new FpsLimit\($str", "\bSay\(p, $str","\[""[^""]+""\] = $str"
 )
 $found = New-Object System.Collections.Generic.HashSet[string]
 foreach ($f in Get-ChildItem (Join-Path $root 'src') -Recurse -Filter *.cs | Where-Object { $_.FullName -notmatch '\\(obj|bin)\\' }) {

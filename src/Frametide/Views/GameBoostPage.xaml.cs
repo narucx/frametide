@@ -2,6 +2,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using Frametide.Core.Boost;
+using Frametide.Core.Gpu;
+using Frametide.Core.Hardware;
 using Frametide.Core.Windows;
 using Frametide.Services;
 using static Frametide.Localization.Loc;
@@ -20,6 +22,7 @@ public partial class GameBoostPage : UserControl
     private readonly MainWindow _main;
     private readonly BoostConfig _cfg = BoostConfig.Load();
     private bool _loading = true;
+    private bool _fillingGpu;
 
     public GameBoostPage(MainWindow main)
     {
@@ -63,6 +66,14 @@ public partial class GameBoostPage : UserControl
         };
         DnsCheck.Click += async (_, _) => { _cfg.FlushDns = DnsCheck.IsChecked == true; await SaveAsync(); };
         ShaderCheck.Click += async (_, _) => { _cfg.ClearShaderCache = ShaderCheck.IsChecked == true; await SaveAsync(); };
+        GpuKeepCheck.IsChecked = _cfg.GpuKeepAfterStop;
+        GpuKeepCheck.Click += async (_, _) => { _cfg.GpuKeepAfterStop = GpuKeepCheck.IsChecked == true; await SaveAsync(); };
+        GpuCombo.SelectionChanged += async (_, _) =>
+        {
+            if (_fillingGpu || GpuCombo.SelectedItem is not ComboBoxItem { Tag: string profile }) return;
+            _cfg.GpuProfile = profile;
+            await SaveAsync();
+        };
         KillBox.LostFocus += async (_, _) => await SaveAsync();
         SuspendBox.LostFocus += async (_, _) => await SaveAsync();
 
@@ -92,14 +103,37 @@ public partial class GameBoostPage : UserControl
         Loaded += async (_, _) =>
         {
             GameBoost.Changed += OnBoostChanged;
+            GpuProfiles.Changed += OnGpuProfilesChanged;
             UpdateState();
             await LoadPlansAsync();
+            _hasNvidia = await _main.RunAsync("Reading the GPU", () => Nvidia.GetInfo() is not null);
+            FillGpuProfiles();
             await CheckLassoAsync();
         };
-        Unloaded += (_, _) => GameBoost.Changed -= OnBoostChanged;
+        Unloaded += (_, _) =>
+        {
+            GameBoost.Changed -= OnBoostChanged;
+            GpuProfiles.Changed -= OnGpuProfilesChanged;
+        };
     }
 
+    private bool _hasNvidia;
+
     private void OnBoostChanged() => Dispatcher.BeginInvoke(UpdateState);
+
+    private void OnGpuProfilesChanged() => Dispatcher.BeginInvoke(FillGpuProfiles);
+
+    /// <summary>GPU profile on START: only with an NVIDIA GPU; a deleted profile falls back to "None".</summary>
+    private void FillGpuProfiles()
+    {
+        foreach (var e in new FrameworkElement[] { GpuLabel, GpuCombo, GpuKeepCheck }) e.Visibility = _hasNvidia ? Visibility.Visible : Visibility.Collapsed;
+        _fillingGpu = true;
+        GpuCombo.Items.Clear();
+        GpuCombo.Items.Add(new ComboBoxItem { Content = T("None"), Tag = "" });
+        foreach (var p in GpuProfiles.All()) GpuCombo.Items.Add(new ComboBoxItem { Content = p.Name, Tag = p.Name });
+        GpuCombo.SelectedItem = GpuCombo.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == _cfg.GpuProfile) ?? GpuCombo.Items[0];
+        _fillingGpu = false;
+    }
 
     private void UpdateState()
     {

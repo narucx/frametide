@@ -16,6 +16,15 @@ public static class Program
         // Must run first: handles Velopack's install/update/uninstall hooks and exits in those cases.
         VelopackApp.Build().Run();
 
+        // Sign-in task: apply a GPU profile and exit, no window and no instance lock.
+        if (args.Length >= 2 && args[0] == Core.Gpu.GpuTuning.ApplyProfileArgument)
+        {
+            Core.Infrastructure.AppPaths.EnsureDataDir();
+            try { Core.Gpu.GpuTuning.ApplyProfile(args[1]); }
+            catch (InvalidOperationException e) { Core.Infrastructure.Log.Error($"GPU profile at sign-in: {e.Message}"); }
+            return;
+        }
+
         if (args.Length >= 2 && args[0] == "--preview")
             Preview = (args[1], args.Length >= 3 ? args[2] : "Overview", args.Length >= 4 ? double.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture) : 0);
         StartInTray = args.Contains(Core.Windows.Autostart.TrayArgument);

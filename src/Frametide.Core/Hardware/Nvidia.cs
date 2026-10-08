@@ -78,6 +78,44 @@ public static partial class Nvidia
             rcWidth == 0 ? (int)width : null, rcGpuGen == 0 && gpuGen > 0 ? (int)gpuGen : null);
     }
 
+    /// <summary>Forgets the device handle; the next call connects again (needed after a driver reset).</summary>
+    public static void Reconnect()
+    {
+        lock (Gate) { _device = IntPtr.Zero; _failed = false; }
+        NvApiVoltage.Reset();
+    }
+
+    // Changes below are volatile: after a reboot or driver reset the GPU runs at defaults again. They need admin rights.
+
+    /// <summary>Shifts the voltage/frequency curve of the graphics clock (P0).</summary>
+    public static void SetClockOffset(int mhz)
+    {
+        var o = NewOffset();
+        o.OffsetMHz = mhz;
+        Check(Call(d => nvmlDeviceSetClockOffsets(d, ref o)), "Setting the clock offset");
+    }
+
+    public static void LockClocks(int minMHz, int maxMHz) => Check(Call(d => nvmlDeviceSetGpuLockedClocks(d, (uint)minMHz, (uint)maxMHz)), "Locking the clock");
+
+    public static void ResetLockedClocks() => Call(nvmlDeviceResetGpuLockedClocks);
+
+    public static void SetPowerLimit(int watts) => Check(Call(d => nvmlDeviceSetPowerManagementLimit(d, (uint)watts * 1000)), "Setting the power limit");
+
+    private static int Call(Func<IntPtr, int> f)
+    {
+        if (!Init()) throw new InvalidOperationException("No NVIDIA GPU (NVML) found.");
+        var rc = f(_device);
+        if (rc == 0) return 0;
+        // A driver reset invalidates the handle: connect again once.
+        Reconnect();
+        return Init() ? f(_device) : rc;
+    }
+
+    private static void Check(int rc, string what)
+    {
+        if (rc != 0) throw new InvalidOperationException($"{what} failed: {Marshal.PtrToStringAnsi(nvmlErrorString(rc))} (code {rc}).");
+    }
+
     // nvmlClockOffset_v1: version = sizeof | (1 << 24)
     private static ClockOffset NewOffset() => new() { Version = (uint)Marshal.SizeOf<ClockOffset>() | (1u << 24) };
 
@@ -102,6 +140,11 @@ public static partial class Nvidia
     [LibraryImport(Dll)] private static partial int nvmlDeviceGetPowerManagementDefaultLimit(IntPtr device, out uint milliwatts);
     [LibraryImport(Dll)] private static partial int nvmlDeviceGetPowerManagementLimitConstraints(IntPtr device, out uint minMw, out uint maxMw);
     [LibraryImport(Dll)] internal static partial int nvmlDeviceGetClockOffsets(IntPtr device, ref ClockOffset info);
+    [LibraryImport(Dll)] private static partial int nvmlDeviceSetClockOffsets(IntPtr device, ref ClockOffset info);
+    [LibraryImport(Dll)] private static partial int nvmlDeviceSetGpuLockedClocks(IntPtr device, uint minMHz, uint maxMHz);
+    [LibraryImport(Dll)] private static partial int nvmlDeviceResetGpuLockedClocks(IntPtr device);
+    [LibraryImport(Dll)] private static partial int nvmlDeviceSetPowerManagementLimit(IntPtr device, uint milliwatts);
+    [LibraryImport(Dll)] private static partial IntPtr nvmlErrorString(int result);
     [LibraryImport(Dll)] private static partial int nvmlDeviceGetBAR1MemoryInfo(IntPtr device, out Bar1 bar1);
     [LibraryImport(Dll)] private static partial int nvmlDeviceGetMaxPcieLinkGeneration(IntPtr device, out uint gen);
     [LibraryImport(Dll)] private static partial int nvmlDeviceGetMaxPcieLinkWidth(IntPtr device, out uint width);
@@ -140,6 +183,8 @@ internal static class NvApiVoltage
         }
         catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException) { _failed = true; return false; }
     }
+
+    public static void Reset() { _volt = null; _failed = false; }
 
     /// <summary>Core voltage in volts, or -1 when not available.</summary>
     public static double GetCoreVoltage()

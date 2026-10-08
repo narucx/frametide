@@ -12,6 +12,7 @@
 - Auto Game Boost: starts with a game from the list and stops after it closed, without opening the game process
 - Installed games scan (Steam, Epic, GOG, Riot, EA, Ubisoft, Battle.net) and Process Lasso conflict check
 - Benchmark: records games from the list with Intel PresentMon (downloaded from Intel, signature checked) and compares sessions without and with Game Boost: average FPS, 1% and 0.1% lows, stutters, GPU power; alt-tab periods are left out, FPS limits are detected
+- GPU and undervolt (NVIDIA): live readings, smart automatic undervolt with a built-in stress test that checks every result, manual clock offset, clock lock and power limit, profiles applied on Game Boost START or at sign-in, profile stress test
 - Notification area icon and start with Windows
 - Backup of every original value in an administrator-only data folder
 - English and German user interface

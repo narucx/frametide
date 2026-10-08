@@ -86,7 +86,7 @@ public sealed class BenchmarkTests : IDisposable
         Directory.CreateDirectory(sessions);
         // Format of the first version: UTF-8 BOM, no Analysis/Cap/Hitches fields.
         File.WriteAllText(Path.Combine(sessions, "20260101-200000.json"),
-            "﻿{ \"Id\": \"20260101-200000\", \"Game\": \"G\", \"Exe\": \"g.exe\", \"Start\": \"2026-01-01T20:00:00\", \"DurationSec\": 600, \"AvgFps\": 100, \"Low1\": 50, \"Low01\": 30, \"StuttersPerMin\": 9, \"Boost\": false, \"GpuW\": 200, \"Series\": [100, 100] }",
+            (char)0xFEFF + "{ \"Id\": \"20260101-200000\", \"Game\": \"G\", \"Exe\": \"g.exe\", \"Start\": \"2026-01-01T20:00:00\", \"DurationSec\": 600, \"AvgFps\": 100, \"Low1\": 50, \"Low01\": 30, \"StuttersPerMin\": 9, \"Boost\": false, \"GpuW\": 200, \"Series\": [100, 100] }",
             new UTF8Encoding(false));
         BenchStore.Save(new BenchSession { Id = "20260102-200000", Game = "G", Exe = "g.exe", Start = new DateTime(2026, 1, 2, 20, 0, 0), DurationSec = 300, AvgFps = 130, Low1 = 70, StuttersPerMin = 1, Boost = true, Analysis = FrameAnalysis.Version, GpuW = 180, Series = [130] });
         BenchStore.Save(new BenchSession { Id = "20260103-200000", Game = "G", Exe = "g.exe", Start = new DateTime(2026, 1, 3, 20, 0, 0), DurationSec = 900, AvgFps = 110, Low1 = 60, StuttersPerMin = 2, Boost = true, Analysis = FrameAnalysis.Version, Series = [110] });

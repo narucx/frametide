@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Frametide.Core.Gpu;
 using Frametide.Core.Hardware;
 using Frametide.Core.Infrastructure;
 using Frametide.Core.Windows;
@@ -16,6 +17,7 @@ public sealed class BoostState
     public string? PrevScheme { get; set; }
     public List<IfeoEntry> Ifeo { get; set; } = [];
     public List<SuspendedProcess> Suspended { get; set; } = [];
+    public bool GpuApplied { get; set; }
 
     /// <summary>Game process IDs already handled by the watcher.</summary>
     public List<int> Handled { get; set; } = [];
@@ -147,6 +149,12 @@ public static class GameBoost
             }
             if (state.Suspended.Count > 0) Log.Ok($"Suspended: {state.Suspended.Count} process(es).");
 
+            if (cfg.GpuProfile.Length > 0)
+            {
+                try { GpuTuning.ApplyProfile(cfg.GpuProfile); state.GpuApplied = true; }
+                catch (InvalidOperationException e) { Log.Error($"GPU profile: {e.Message}"); }
+            }
+
             if (cfg.ClearShaderCache) ShaderCache.Clear();
             if (cfg.FlushDns)
             {
@@ -185,6 +193,12 @@ public static class GameBoost
             if (state.PrevScheme is not null)
             {
                 if (PowerCfg.SetActive(state.PrevScheme)) Log.Ok("Power plan restored."); else Log.Warn("Could not restore the power plan.");
+            }
+
+            if (state.GpuApplied && !cfg.GpuKeepAfterStop)
+            {
+                try { GpuTuning.Reset(); GpuTuning.SetActive(""); Log.Ok("GPU reset to default."); }
+                catch (InvalidOperationException e) { Log.Warn($"GPU reset: {e.Message}"); }
             }
 
             LaunchPriority.Restore(state.Ifeo);

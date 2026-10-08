@@ -1,5 +1,6 @@
 using System.Windows;
 using Frametide.Core.Boost;
+using Frametide.Core.Gpu;
 using Frametide.Core.Infrastructure;
 using Frametide.Core.Windows;
 using Frametide.Localization;
@@ -34,6 +35,7 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        L.Translator = (text, args) => T(text, args);   // status texts from Core in the UI language
         if (Program.Preview is not null)
         {
             AppPaths.UseDataDir(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "frametide-preview"));
@@ -97,6 +99,13 @@ public partial class App : Application
     public void ExitApp()
     {
         if (Exiting) return;
+        if (GpuTests.Running)
+        {
+            // Exiting mid-test would leave the GPU locked or at the maximum power limit.
+            if (MessageBox.Show(T("A GPU test is still running. Exiting cancels it and resets the GPU to default. Exit anyway?"),
+                    "Frametide", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+            GpuTests.CancelAndWait(TimeSpan.FromSeconds(15));
+        }
         if (GameBoost.IsActive)
         {
             var answer = MessageBox.Show(T("Game Boost is still active.\n\nYes = stop Game Boost and exit (everything is rolled back).\nNo = exit and keep Game Boost active (suspended apps stay frozen until you press STOP next time)."),
