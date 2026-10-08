@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## Unreleased
+
+### Added
+- "Check for updates" button below the language; it also says when Frametide is up to date
+
 ## v0.1.0-beta.2
 
 ### Added

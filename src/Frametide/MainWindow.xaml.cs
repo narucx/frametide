@@ -57,8 +57,9 @@ public partial class MainWindow : Window
         BetaCheck.Click += async (_, _) =>
         {
             Services.Updater.IncludeBetas = BetaCheck.IsChecked == true;
-            await CheckForUpdateAsync();
+            await CheckForUpdateAsync(manual: true);
         };
+        CheckUpdatesButton.Click += async (_, _) => await CheckForUpdateAsync(manual: true);
 
         Log.LineAdded += OnLogLine;
         Closed += (_, _) => Log.LineAdded -= OnLogLine;
@@ -75,20 +76,38 @@ public partial class MainWindow : Window
     private Services.Updater? _updater;
     private Velopack.UpdateInfo? _update;
 
-    /// <summary>Shows an "Update to vX" button when GitHub Releases has a newer version (installed copies only).</summary>
-    private async Task CheckForUpdateAsync()
+    /// <summary>
+    /// Shows an "Update to vX" button when GitHub Releases has a newer version (installed copies only). Runs when the
+    /// window opens; a manual check also tells when there is nothing new.
+    /// </summary>
+    private async Task CheckForUpdateAsync(bool manual = false)
     {
         _update = null;
         UpdateButton.Visibility = Visibility.Collapsed;
+        CheckUpdatesButton.IsEnabled = false;
+        if (manual) ShowUpdateStatus(T("Checking for updates ..."));
         _updater = new Services.Updater();   // new instance: the beta setting may have changed
         try
         {
-            if (await _updater.CheckAsync() is not { } update) return;
+            if (!_updater.IsInstalled) { if (manual) ShowUpdateStatus(T("Updates only work in the installed app.")); return; }
+            if (await _updater.CheckAsync() is not { } update) { if (manual) ShowUpdateStatus(T("Frametide is up to date.")); return; }
             _update = update;
+            ShowUpdateStatus("");
             UpdateButton.Content = T("Update to v{0}", update.TargetFullRelease.Version);
             UpdateButton.Visibility = Visibility.Visible;
         }
-        catch (Exception e) { Log.Warn($"Update check failed: {e.Message}"); }
+        catch (Exception e)
+        {
+            Log.Warn($"Update check failed: {e.Message}");
+            if (manual) ShowUpdateStatus(T("Update check failed: {0}", e.Message));
+        }
+        finally { CheckUpdatesButton.IsEnabled = true; }
+    }
+
+    private void ShowUpdateStatus(string text)
+    {
+        UpdateStatus.Text = text;
+        UpdateStatus.Visibility = text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private async Task InstallUpdateAsync()

@@ -619,5 +619,10 @@
   "Weather": "Wetter",
   "Xbox Game Bar (Win+G)": "Xbox Game Bar (Win+G)",
   "Beta updates": "Beta-Updates",
-  "Also offer test versions. A beta always gets the next stable version as an update.": "Auch Testversionen anbieten. Eine Beta bekommt die nächste stabile Version immer als Update."
+  "Also offer test versions. A beta always gets the next stable version as an update.": "Auch Testversionen anbieten. Eine Beta bekommt die nächste stabile Version immer als Update.",
+  "Check for updates": "Nach Updates suchen",
+  "Checking for updates ...": "Suche nach Updates ...",
+  "Updates only work in the installed app.": "Updates gibt es nur in der installierten App.",
+  "Frametide is up to date.": "Frametide ist aktuell.",
+  "Update check failed: {0}": "Update-Suche fehlgeschlagen: {0}"
 }
