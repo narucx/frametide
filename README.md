@@ -24,11 +24,11 @@ Requires the .NET 10 SDK.
 
 ```
 dotnet test --solution Frametide.slnx
-dotnet build src/Frametide -p:FtPreview=true -o preview
+dotnet build src/Frametide -o preview
 preview/Frametide.exe --preview page.png "Tweaks & profiles"
 powershell -ExecutionPolicy Bypass -File tools/Find-MissingTranslations.ps1 -Lang de
 ```
-The preview build has no administrator manifest and renders a page to a PNG (read-only, temporary data folder).
+`--preview` renders a page to a PNG without administrator rights (read-only, temporary data folder).
 The last command lists UI texts without a German translation.
 
 ## License

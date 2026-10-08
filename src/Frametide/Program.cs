@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Security.Principal;
 using Velopack;
 
 namespace Frametide;
@@ -13,8 +15,19 @@ public static class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        // Must run first: handles Velopack's install/update/uninstall hooks and exits in those cases.
+        // Must run first: handles Velopack's install/update/uninstall hooks and exits in those cases. The hooks run
+        // without elevation, which is why the manifest does not demand administrator rights.
         VelopackApp.Build().Run();
+
+        if (args.Length >= 2 && args[0] == "--preview")
+            Preview = (args[1], args.Length >= 3 ? args[2] : "Overview", args.Length >= 4 ? double.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture) : 0);
+
+        // Nearly every feature needs administrator rights: start again elevated (UAC prompt), with the same arguments.
+        if (Preview is null && !IsElevated())
+        {
+            RestartElevated(args);
+            return;
+        }
 
         // Sign-in task: apply a GPU profile and exit, no window and no instance lock.
         if (args.Length >= 2 && args[0] == Core.Gpu.GpuTuning.ApplyProfileArgument)
@@ -25,8 +38,6 @@ public static class Program
             return;
         }
 
-        if (args.Length >= 2 && args[0] == "--preview")
-            Preview = (args[1], args.Length >= 3 ? args[2] : "Overview", args.Length >= 4 ? double.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture) : 0);
         StartInTray = args.Contains(Core.Windows.Autostart.TrayArgument);
 
         // One instance only: a later start brings the running one to the front.
@@ -40,5 +51,20 @@ public static class Program
         var app = new App { Instance = instance };
         app.InitializeComponent();
         app.Run();
+    }
+
+    private static bool IsElevated()
+    {
+        using var identity = WindowsIdentity.GetCurrent();
+        return new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);
+    }
+
+    private static void RestartElevated(string[] args)
+    {
+        // Our arguments contain no backslash before a quote, so wrapping in quotes and doubling inner quotes is enough.
+        var arguments = string.Join(" ", args.Select(a => a.Length > 0 && !a.Any(c => c is ' ' or '"') ? a : $"\"{a.Replace("\"", "\"\"")}\""));
+        var psi = new ProcessStartInfo(Environment.ProcessPath!, arguments) { UseShellExecute = true, Verb = "runas" };
+        try { Process.Start(psi)?.Dispose(); }
+        catch (System.ComponentModel.Win32Exception e) when (e.NativeErrorCode == 1223) { }   // UAC prompt declined
     }
 }

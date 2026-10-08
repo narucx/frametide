@@ -8,8 +8,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <!-- WFO0003 wants the DPI mode set through WinForms; this is a WPF app, which takes it from app.manifest. -->
     <NoWarn>$(NoWarn);WFO0003</NoWarn>
-    <!-- Dev only: "dotnet build -p:FtPreview=true" builds without the admin manifest for UI screenshots (preview argument, see Program.cs). -->
-    <ApplicationManifest Condition="'$(FtPreview)' != 'true'">app.manifest</ApplicationManifest>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\frametide.ico</ApplicationIcon>
     <RootNamespace>Frametide</RootNamespace>
     <AssemblyName>Frametide</AssemblyName>
