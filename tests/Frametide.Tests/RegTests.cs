@@ -3,18 +3,14 @@ using Microsoft.Win32;
 
 namespace Frametide.Tests;
 
-/// <summary>Writes only below HKCU\Software\FrametideTests\(guid) and deletes it afterwards.</summary>
+/// <summary>Writes only below HKCU\Software\FrametideTests-(guid) and deletes it afterwards.</summary>
 public sealed class RegTests : IDisposable
 {
-    private readonly string _sub = $@"Software\FrametideTests\{Guid.NewGuid():N}";
+    // Own top-level key per test instance: a shared parent key could be deleted under tests running in parallel.
+    private readonly string _sub = $@"Software\FrametideTests-{Guid.NewGuid():N}";
     private string KeyPath => $@"HKCU:\{_sub}";
 
-    public void Dispose()
-    {
-        Registry.CurrentUser.DeleteSubKeyTree(_sub, throwOnMissingSubKey: false);
-        using var parent = Registry.CurrentUser.OpenSubKey(@"Software\FrametideTests");
-        if (parent is { SubKeyCount: 0, ValueCount: 0 }) Registry.CurrentUser.DeleteSubKey(@"Software\FrametideTests", throwOnMissingSubKey: false);
-    }
+    public void Dispose() => Registry.CurrentUser.DeleteSubKeyTree(_sub, throwOnMissingSubKey: false);
 
     [Theory]
     [InlineData(@"HKLM:\SOFTWARE\X", RegistryHive.LocalMachine, @"SOFTWARE\X")]

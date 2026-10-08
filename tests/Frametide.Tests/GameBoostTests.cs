@@ -6,12 +6,13 @@ using Microsoft.Win32;
 
 namespace Frametide.Tests;
 
-/// <summary>Uses a temporary data folder and HKCU\Software\FrametideTests\(guid) instead of the real IFEO key.</summary>
+/// <summary>Uses a temporary data folder and HKCU\Software\FrametideTests-(guid) instead of the real IFEO key.</summary>
 [Collection("DataDir")]
 public sealed class GameBoostTests : IDisposable
 {
     private readonly string _dir = Directory.CreateTempSubdirectory("ft-boost-").FullName;
-    private readonly string _sub = $@"Software\FrametideTests\{Guid.NewGuid():N}";
+    // Own top-level key per test instance: a shared parent key could be deleted under tests running in parallel.
+    private readonly string _sub = $@"Software\FrametideTests-{Guid.NewGuid():N}";
     private readonly string _previousRoot = LaunchPriority.Root;
 
     public GameBoostTests()
@@ -24,9 +25,7 @@ public sealed class GameBoostTests : IDisposable
     {
         LaunchPriority.Root = _previousRoot;
         Registry.CurrentUser.DeleteSubKeyTree(_sub, throwOnMissingSubKey: false);
-        using (var parent = Registry.CurrentUser.OpenSubKey(@"Software\FrametideTests"))
-            if (parent is { SubKeyCount: 0, ValueCount: 0 }) Registry.CurrentUser.DeleteSubKey(@"Software\FrametideTests", throwOnMissingSubKey: false);
-        Directory.Delete(_dir, recursive: true);
+        TestData.Release(_dir);
     }
 
     [Fact]

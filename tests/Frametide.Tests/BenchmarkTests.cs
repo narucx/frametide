@@ -12,7 +12,7 @@ public sealed class BenchmarkTests : IDisposable
 {
     private readonly string _dir = Directory.CreateTempSubdirectory("ft-bench-").FullName;
 
-    public void Dispose() => Directory.Delete(_dir, recursive: true);
+    public void Dispose() => TestData.Release(_dir);
 
     /// <summary>Writes a PresentMon v2 style CSV; frame start times are on the QPC ms clock, starting at 10 000.</summary>
     private string Csv(IEnumerable<double> frameTimes, string process = "game.exe", string swapChain = "0x1", IEnumerable<double>? overlay = null)

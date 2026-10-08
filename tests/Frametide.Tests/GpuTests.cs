@@ -11,7 +11,7 @@ public sealed class GpuProfileTests : IDisposable
 
     public GpuProfileTests() => AppPaths.UseDataDir(_dir);
 
-    public void Dispose() => Directory.Delete(_dir, recursive: true);
+    public void Dispose() => TestData.Release(_dir);
 
     [Fact]
     public void Reads_profiles_of_the_first_version()
