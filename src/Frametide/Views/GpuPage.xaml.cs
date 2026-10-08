@@ -149,7 +149,7 @@ public partial class GpuPage : UserControl
 
     private static string VsyncText(uint? v) => v switch
     {
-        null => T("Driver default"), 0x08416747 => T("Forced off"), NvidiaProfiles.VsyncForcedOn => T("Forced on"), 0x60925292 => T("App decides"), _ => $"0x{v:X}",
+        null => T("Driver default"), NvidiaProfiles.VsyncForcedOff => T("Forced off"), NvidiaProfiles.VsyncForcedOn => T("Forced on"), 0x60925292 => T("App decides"), _ => $"0x{v:X}",
     };
 
     private void Tick()

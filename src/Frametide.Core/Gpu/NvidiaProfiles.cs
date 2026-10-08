@@ -212,6 +212,7 @@ public static class NvidiaProfiles
     public const uint Vsync = 0x00A879CF;
     public const uint FrameRateLimit = 0x10835002;
     public const uint VsyncForcedOn = 0x47814940;
+    public const uint VsyncForcedOff = 0x08416747;
 
     private static readonly (uint Id, uint Value)[] GameSettings = [(PowerMode, 1), (Prerender, 1)];
 
@@ -246,36 +247,74 @@ public static class NvidiaProfiles
         return new NvStatus(drs.GetDword(glob, PowerMode).Value, drs.GetDword(glob, ShaderCache).Value, drs.GetDword(glob, Vsync).Value, games, File.Exists(AppPaths.NvProfilesUndo));
     }
 
+    /// <summary>The undo list; only the first original value per profile and setting is kept, so repeated runs never overwrite it.</summary>
+    private sealed class UndoLog
+    {
+        private readonly HashSet<(string, uint, bool)> _known;
+
+        public List<NvUndo> Entries { get; } = JsonFile.Read<List<NvUndo>>(AppPaths.NvProfilesUndo) ?? [];
+
+        public UndoLog() => _known = Entries.Select(u => (u.Profile, u.Id, u.Created)).ToHashSet();
+
+        public void Add(NvUndo u) { if (_known.Add((u.Profile, u.Id, u.Created))) Entries.Add(u); }
+
+        public void Save() => JsonFile.Write(AppPaths.NvProfilesUndo, Entries);
+    }
+
+    /// <summary>Sets the values in the game's driver profile (created when the driver has none for the game).</summary>
+    private static string ApplyTo(Drs drs, GameEntry g, (uint Id, uint Value)[] settings, UndoLog undo)
+    {
+        var p = drs.FindApp(g.Exe);
+        if (p == IntPtr.Zero)
+        {
+            var own = OwnProfileName(g);
+            p = drs.FindProfile(own);
+            if (p == IntPtr.Zero)
+            {
+                p = drs.CreateProfile(own, g.Exe, g.Name);
+                undo.Add(new NvUndo { Profile = own, Created = true });
+                Log.Ok($"NVIDIA: created profile '{own}' for {g.Exe}.");
+            }
+        }
+        var name = drs.ProfileName(p);
+        foreach (var (id, value) in settings)
+        {
+            var cur = drs.GetDword(p, id);
+            if (cur.Own && cur.Value == value) continue;
+            undo.Add(new NvUndo { Profile = name, Id = id, Own = cur.Own, Predefined = cur.Predefined, Prev = cur.Value });
+            drs.SetDword(p, id, value);
+        }
+        return name;
+    }
+
+    private static readonly GameEntry Cs2Game = new() { Name = "Counter-Strike 2", Exe = "cs2.exe" };
+    private static readonly (uint Id, uint Value)[] Cs2Settings = [(PowerMode, 1), (Vsync, VsyncForcedOff)];
+
+    /// <summary>CS2 profile: prefer maximum performance and V-Sync forced off (Reflex is set in game).</summary>
+    public static bool Cs2Optimized()
+    {
+        using var drs = new Drs();
+        var p = drs.FindApp(Cs2Game.Exe);
+        return p != IntPtr.Zero && Cs2Settings.All(s => drs.GetDword(p, s.Id) is { Own: true } v && v.Value == s.Value);
+    }
+
+    public static void OptimizeCs2()
+    {
+        var undo = new UndoLog();
+        using var drs = new Drs();
+        var name = ApplyTo(drs, Cs2Game, Cs2Settings, undo);
+        undo.Save();   // undo data first, then save to the driver
+        drs.Save();
+        Log.Ok($"NVIDIA profile '{name}' (cs2.exe): prefer maximum performance, V-Sync forced off.");
+    }
+
     public static void Optimize(bool globalPowerNormal)
     {
-        // Only the first original value per profile and setting is kept, so repeated runs never overwrite it.
-        var undo = JsonFile.Read<List<NvUndo>>(AppPaths.NvProfilesUndo) ?? [];
-        var known = undo.Select(u => (u.Profile, u.Id, u.Created)).ToHashSet();
-        void Remember(NvUndo u) { if (known.Add((u.Profile, u.Id, u.Created))) undo.Add(u); }
-
+        var undo = new UndoLog();
         using var drs = new Drs();
         foreach (var g in BoostConfig.Load().Games)
         {
-            var p = drs.FindApp(g.Exe);
-            if (p == IntPtr.Zero)
-            {
-                var own = OwnProfileName(g);
-                p = drs.FindProfile(own);
-                if (p == IntPtr.Zero)
-                {
-                    p = drs.CreateProfile(own, g.Exe, g.Name);
-                    Remember(new NvUndo { Profile = own, Created = true });
-                    Log.Ok($"NVIDIA: created profile '{own}' for {g.Exe}.");
-                }
-            }
-            var name = drs.ProfileName(p);
-            foreach (var (id, value) in GameSettings)
-            {
-                var cur = drs.GetDword(p, id);
-                if (cur.Own && cur.Value == value) continue;
-                Remember(new NvUndo { Profile = name, Id = id, Own = cur.Own, Predefined = cur.Predefined, Prev = cur.Value });
-                drs.SetDword(p, id, value);
-            }
+            var name = ApplyTo(drs, g, GameSettings, undo);
             Log.Ok($"NVIDIA profile '{name}' ({g.Exe}): prefer maximum performance, low latency mode on.");
         }
 
@@ -284,17 +323,17 @@ public static class NvidiaProfiles
         var sc = drs.GetDword(glob, ShaderCache);
         if (sc.Value != uint.MaxValue)
         {
-            Remember(new NvUndo { Profile = globalName, Id = ShaderCache, Own = sc.Own, Predefined = sc.Predefined, Prev = sc.Value });
+            undo.Add(new NvUndo { Profile = globalName, Id = ShaderCache, Own = sc.Own, Predefined = sc.Predefined, Prev = sc.Value });
             drs.SetDword(glob, ShaderCache, uint.MaxValue);
             Log.Ok("NVIDIA global: shader cache size unlimited.");
         }
         if (globalPowerNormal && drs.GetDword(glob, PowerMode) is { Own: true } gp)
         {
-            Remember(new NvUndo { Profile = globalName, Id = PowerMode, Own = gp.Own, Predefined = gp.Predefined, Prev = gp.Value });
+            undo.Add(new NvUndo { Profile = globalName, Id = PowerMode, Own = gp.Own, Predefined = gp.Predefined, Prev = gp.Value });
             drs.ResetSetting(glob, PowerMode);
             Log.Ok("NVIDIA global: power management back to the driver default (Normal).");
         }
-        JsonFile.Write(AppPaths.NvProfilesUndo, undo);   // undo data first, then save to the driver
+        undo.Save();   // undo data first, then save to the driver
         drs.Save();
     }
 

@@ -1,0 +1,57 @@
+<UserControl x:Class="Frametide.Views.Cs2Page"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <StackPanel>
+    <Border Style="{StaticResource Card}">
+      <StackPanel>
+        <TextBlock Text="Installation" Style="{StaticResource H2}"/>
+        <TextBlock x:Name="PathText" Style="{StaticResource Sub}"/>
+        <WrapPanel>
+          <Button x:Name="OpenCfg" Content="Open CFG folder" Margin="0,0,8,0"/>
+          <Button x:Name="Reload" Content="Reload" Margin="0"/>
+        </WrapPanel>
+      </StackPanel>
+    </Border>
+
+    <Border Style="{StaticResource Card}">
+      <StackPanel>
+        <TextBlock Text="Launch options" Style="{StaticResource H2}"/>
+        <TextBlock Text="Change them in Steam: right-click CS2 > Properties > Launch options. Less is more: most people need no launch options at all." Style="{StaticResource Sub}"/>
+        <TextBlock x:Name="LaunchText" FontFamily="Consolas" Margin="0,0,0,10"/>
+        <StackPanel x:Name="LaunchHints"/>
+      </StackPanel>
+    </Border>
+
+    <Border Style="{StaticResource Card}">
+      <StackPanel>
+        <TextBlock Text="Video settings (cs2_video.txt)" Style="{StaticResource H2}"/>
+        <TextBlock Text="Read-only. For competitive: Reflex 'Enabled', V-Sync off, shadows at least 'Medium' (enemy shadows visible), MSAA 4x or CMAA2, FSR off." Style="{StaticResource Sub}"/>
+        <UniformGrid x:Name="VideoGrid" Columns="2"/>
+      </StackPanel>
+    </Border>
+
+    <Border x:Name="NvCard" Style="{StaticResource Card}">
+      <StackPanel>
+        <TextBlock Text="NVIDIA profile for CS2" Style="{StaticResource H2}"/>
+        <TextBlock Text="Sets 'Power management: prefer maximum performance' and 'V-Sync: forced off' in the driver profile of CS2. Set NVIDIA Reflex in game; the driver low latency mode is then ignored. Undo is on the 'GPU &amp; undervolt' page (NVIDIA game profiles)." Style="{StaticResource Sub}"/>
+        <DockPanel>
+          <Button x:Name="NvApply" DockPanel.Dock="Right" Content="Apply" Style="{StaticResource Primary}" Margin="8,0,0,0"/>
+          <TextBlock x:Name="NvState" VerticalAlignment="Center"/>
+        </DockPanel>
+      </StackPanel>
+    </Border>
+
+    <Border Style="{StaticResource Card}">
+      <StackPanel>
+        <TextBlock Text="Server blocker" Style="{StaticResource H2}"/>
+        <TextBlock Text="Blocks CS2 relay regions through the Windows Firewall so matchmaking does not send you to far-away servers. Checked = blocked. Too many blocks make queue times longer." Style="{StaticResource Sub}"/>
+        <WrapPanel Margin="0,0,0,10">
+          <Button x:Name="SrvLoad" Content="Load server list + ping" Margin="0,0,8,8"/>
+          <Button x:Name="SrvApply" Content="Apply selection" Style="{StaticResource Primary}" Margin="0,0,8,8" IsEnabled="False"/>
+          <Button x:Name="SrvClear" Content="Unblock all" Style="{StaticResource Danger}" Margin="0,0,8,8"/>
+        </WrapPanel>
+        <UniformGrid x:Name="SrvList" Columns="2"/>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

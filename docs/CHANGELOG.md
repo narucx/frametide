@@ -14,6 +14,7 @@
 - Benchmark: records games from the list with Intel PresentMon (downloaded from Intel, signature checked) and compares sessions without and with Game Boost: average FPS, 1% and 0.1% lows, stutters, GPU power; alt-tab periods are left out, FPS limits are detected
 - GPU and undervolt (NVIDIA): live readings, smart automatic undervolt with a built-in stress test that checks every result, manual clock offset, clock lock and power limit, profiles applied on Game Boost START or at sign-in, profile stress test
 - NVIDIA game profiles: prefer maximum performance and low latency mode for the games in the list, unlimited shader cache; Undo restores the previous driver values
+- CS2: launch option check, video settings overview, NVIDIA driver profile, server blocker (Windows Firewall rules per relay region)
 - Notification area icon and start with Windows
 - Backup of every original value in an administrator-only data folder
 - English and German user interface

@@ -32,7 +32,7 @@ public partial class MainWindow : Window
             new("Game Boost", "Temporary optimizations only while you play. STOP rolls everything back.", () => new GameBoostPage(this)),
             new("Benchmark", "FPS, 1% lows and stutters of your real game sessions, without and with Game Boost.", () => new BenchmarkPage(this)),
             new("GPU & undervolt", "Live readings, automatic undervolting and profiles (NVIDIA, via NVML).", () => new GpuPage(this)),
-            new("CS2", "Launch options, video settings, NVIDIA profile and server blocker.", Placeholder),
+            new("CS2", "Launch options, video settings, NVIDIA profile and server blocker.", () => new Cs2Page(this)),
             new("Maintenance", "Restore point, system files, cleanup and bloatware.", Placeholder),
             new("Log", "Everything Frametide has changed.", CreateLogPage),
         ];
