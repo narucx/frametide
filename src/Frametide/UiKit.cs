@@ -59,6 +59,43 @@ public static class UiKit
         return g;
     }
 
+    /// <summary>Small line chart of a series (e.g. FPS over a session).</summary>
+    public static Canvas Sparkline(IReadOnlyList<int> values, double width = 150, double height = 30)
+    {
+        var c = new Canvas { Width = width, Height = height, Margin = new Thickness(12, 0, 4, 0), VerticalAlignment = VerticalAlignment.Center };
+        if (values.Count < 2) return c;
+        double max = Math.Max(1, values.Max());
+        var points = new PointCollection(values.Select((v, i) => new Point(i * width / (values.Count - 1), height - 1 - v / max * (height - 2))));
+        c.Children.Add(new Polyline { Stroke = Brush("Accent"), StrokeThickness = 1.4, Points = points });
+        return c;
+    }
+
+    /// <summary>Table: cells are texts or elements; the first column is left-aligned, the others right-aligned.</summary>
+    public static Grid Table(IReadOnlyList<string> headers, IEnumerable<IReadOnlyList<object>> rows)
+    {
+        var g = new Grid { Margin = new Thickness(0, 4, 0, 14) };
+        for (var i = 0; i < headers.Count; i++)
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(i == 0 ? 1.4 : 1, GridUnitType.Star) });
+        var all = new List<IReadOnlyList<object>> { headers.Cast<object>().ToList() };
+        all.AddRange(rows);
+        for (var r = 0; r < all.Count; r++)
+        {
+            g.RowDefinitions.Add(new RowDefinition());
+            for (var i = 0; i < all[r].Count; i++)
+            {
+                var cell = all[r][i] as FrameworkElement
+                           ?? (r == 0 ? Text(all[r][i].ToString()!.ToUpperInvariant(), 11, "Muted", bold: true, translate: false)
+                                      : Text(all[r][i].ToString()!, 13, translate: false));
+                cell.Margin = new Thickness(0, 3, 0, 3);
+                if (i > 0) cell.HorizontalAlignment = HorizontalAlignment.Right;
+                Grid.SetRow(cell, r);
+                Grid.SetColumn(cell, i);
+                g.Children.Add(cell);
+            }
+        }
+        return g;
+    }
+
     public static Border Card(UIElement content) => new() { Style = (Style)Application.Current.FindResource("Card"), Child = content };
 
     public static MessageBoxResult Ask(string text, MessageBoxButton buttons = MessageBoxButton.YesNo, MessageBoxImage icon = MessageBoxImage.Question) =>

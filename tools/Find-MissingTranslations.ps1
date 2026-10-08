@@ -1,7 +1,8 @@
 # Dev tool: lists UI texts that have no entry in src/Frametide/Lang/<lang>.json.
 #   powershell -ExecutionPolicy Bypass -File tools\Find-MissingTranslations.ps1 -Lang de [-RemoveUnused]
 # Finds texts passed to T(...), RunAsync(...) (status bar), Text(...), Button(...), Badge(...), Row(...), the tweak/repair/profile catalog
-# (Name, Description, BlockedHint), ("text", Enum.Value) option tables and static XAML texts (Text, Content, ToolTip).
+# (Name, Description, BlockedHint), ("text", Enum.Value) option tables, FPS limit sources, ["key"] = "text" tables
+# and static XAML texts (Text, Content, ToolTip).
 # -RemoveUnused deletes entries whose text no longer appears anywhere in the source.
 param([string]$Lang = 'de', [switch]$RemoveUnused)
 
@@ -14,7 +15,7 @@ $str = '"((?:[^"\\]|\\.)*)"'
 $csPatterns = @(
     "\bT\($str", "\bRunAsync\($str", "\bText\($str", "\bButton\($str", "\bBadge\($str", "\bRow\(""\w+"", $str", "\bRow\(null, $str",
     "\bName = $str", "\bDescription = $str", "\bBlockedHint = $str", "new\(""[^""]+"",\s*$str", "^\s*new\($str",
-    "(?<=[\[,]\s*)\($str,\s*[A-Z]\w+\.[A-Z]\w+\)"
+    "(?<=[\[,]\s*)\($str,\s*[A-Z]\w+\.[A-Z]\w+\)", "new FpsLimit\($str", "\[""[^""]+""\] = $str"
 )
 $found = New-Object System.Collections.Generic.HashSet[string]
 foreach ($f in Get-ChildItem (Join-Path $root 'src') -Recurse -Filter *.cs | Where-Object { $_.FullName -notmatch '\\(obj|bin)\\' }) {
@@ -22,7 +23,7 @@ foreach ($f in Get-ChildItem (Join-Path $root 'src') -Recurse -Filter *.cs | Whe
     foreach ($p in $csPatterns) {
         foreach ($m in [regex]::Matches($text, $p, 'Multiline')) {
             $s = $m.Groups[1].Value -replace '\\"', '"' -replace '\\n', "`n" -replace '\\\\', '\'
-            if ($s -match '[A-Za-z]{2}' -and $s -cnotmatch '^(HK|reg\||svc\||pnp\|)' -and $s -cnotmatch '^[a-z0-9_.]+$') { [void]$found.Add($s) }
+            if ($s -match '[A-Za-z]{2}' -and $s -cnotmatch '^(HK|reg\||svc\||pnp\|)' -and $s -cnotmatch '^[a-z0-9_.]+$' -and $s -notmatch '^[^ ]+\.exe$') { [void]$found.Add($s) }
         }
     }
 }

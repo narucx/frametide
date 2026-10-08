@@ -108,7 +108,7 @@ public partial class App : Application
             }
         }
         Exiting = true;
-        _loop?.Stop();
+        _loop?.Dispose();
         _window?.Close();
         _tray?.Dispose();
         Log.Info("Frametide closed.");

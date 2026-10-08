@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Frametide.Core.Windows;
 using Microsoft.Win32;
 
 namespace Frametide.Core.Boost;
@@ -25,7 +24,7 @@ public static partial class GameScanner
     };
 
     public static IReadOnlyList<InstalledGame> Scan() =>
-        Safe(Steam).Concat(Safe(Epic)).Concat(Safe(Gog)).Concat(Safe(OtherLaunchers))
+        Safe(SteamGames).Concat(Safe(Epic)).Concat(Safe(Gog)).Concat(Safe(OtherLaunchers))
             .GroupBy(g => g.Exe, StringComparer.OrdinalIgnoreCase).Select(g => g.First())
             .OrderBy(g => g.Source).ThenBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
@@ -50,25 +49,9 @@ public static partial class GameScanner
         return pick?.Name;
     }
 
-    public static string? SteamPath()
+    private static IEnumerable<InstalledGame> SteamGames()
     {
-        if (Reg.Get(@"HKCU:\Software\Valve\Steam", "SteamPath").Value is string p && p.Length > 0) return p.Replace('/', '\\');
-        return Reg.Get(@"HKLM:\SOFTWARE\WOW6432Node\Valve\Steam", "InstallPath").Value as string;
-    }
-
-    /// <summary>All Steam library folders (the main install and the ones in libraryfolders.vdf).</summary>
-    public static IReadOnlyList<string> SteamLibraries()
-    {
-        if (SteamPath() is not { } steam) return [];
-        var libs = new List<string> { steam };
-        var vdf = Path.Combine(steam, @"steamapps\libraryfolders.vdf");
-        if (File.Exists(vdf)) libs.AddRange(VdfPath().Matches(File.ReadAllText(vdf)).Select(m => m.Groups[1].Value.Replace(@"\\", @"\")));
-        return libs.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-    }
-
-    private static IEnumerable<InstalledGame> Steam()
-    {
-        foreach (var lib in SteamLibraries())
+        foreach (var lib in Games.Steam.Libraries())
         {
             var apps = Path.Combine(lib, "steamapps");
             if (!Directory.Exists(apps)) continue;
@@ -165,9 +148,6 @@ public static partial class GameScanner
 
     [GeneratedRegex(@"Redistributable|Proton|Steam Linux Runtime|SteamVR|Soundtrack|Dedicated Server|SDK", RegexOptions.IgnoreCase)]
     private static partial Regex NotAGame();
-
-    [GeneratedRegex(@"""path""\s+""([^""]+)""")]
-    private static partial Regex VdfPath();
 
     [GeneratedRegex("VALORANT|League of Legends", RegexOptions.IgnoreCase)]
     private static partial Regex RiotGame();

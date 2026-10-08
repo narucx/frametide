@@ -7,6 +7,7 @@ using Microsoft.Win32;
 namespace Frametide.Tests;
 
 /// <summary>Uses a temporary data folder and HKCU\Software\FrametideTests\(guid) instead of the real IFEO key.</summary>
+[Collection("DataDir")]
 public sealed class GameBoostTests : IDisposable
 {
     private readonly string _dir = Directory.CreateTempSubdirectory("ft-boost-").FullName;
