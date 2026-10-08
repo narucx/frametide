@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## Unreleased
+
+### Fixed
+- Beta versions now find newer beta versions as updates
+
 ## v0.1.0-beta.1
 
 ### Added

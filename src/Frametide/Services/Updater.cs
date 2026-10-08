@@ -1,3 +1,4 @@
+using System.Reflection;
 using Velopack;
 using Velopack.Sources;
 
@@ -8,7 +9,11 @@ public sealed class Updater
 {
     public const string RepoUrl = "https://github.com/narucx/frametide";
 
-    private readonly UpdateManager _manager = new(new GithubSource(RepoUrl, accessToken: null, prerelease: false));
+    // A pre-release (e.g. 1.0.0-beta.1) also gets newer pre-releases; a stable version only stable releases.
+    private static readonly bool IsPrerelease =
+        typeof(Updater).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0].Contains('-') == true;
+
+    private readonly UpdateManager _manager = new(new GithubSource(RepoUrl, accessToken: null, prerelease: IsPrerelease));
 
     public bool IsInstalled => _manager.IsInstalled;
 
