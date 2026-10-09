@@ -284,7 +284,7 @@ public static class GameBoost
 
                 if (stillSuspended.Count == 0 && prevScheme is null && ifeoFailed.Count == 0)
                 {
-                    File.Delete(AppPaths.BoostState);
+                    JsonFile.Delete(AppPaths.BoostState);
                     Log.Ok("Game Boost stopped.");
                     return;
                 }

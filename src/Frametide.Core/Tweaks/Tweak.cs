@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Frametide.Core.Infrastructure;
 using Frametide.Core.Windows;
 using Microsoft.Win32;
@@ -38,6 +39,12 @@ public abstract class Tweak
     /// <summary>Shown when Windows denies the change (e.g. protected policy keys).</summary>
     public string? BlockedHint { get; init; }
 
+    /// <summary>
+    /// False for tweaks whose revert does not depend on a backup (e.g. it removes a key that only the tweak uses).
+    /// All others can only be reverted when the journal holds their originals.
+    /// </summary>
+    public bool RevertNeedsBackup { get; init; } = true;
+
     public abstract TweakStatus GetStatus();
     public abstract void Apply(Journal journal);
     public abstract void Revert(Journal journal);
@@ -63,8 +70,8 @@ public sealed class RegistryTweak : Tweak
         }
         foreach (var svc in Services)
         {
-            var cur = Windows.Services.GetStartMode(svc.Name);
-            if (cur is null) continue;              // service does not exist on this PC
+            // Missing on this PC, or a boot/system driver, which is never touched.
+            if (Windows.Services.GetStartMode(svc.Name) is not { } cur || IsBootOrSystem(cur)) continue;
             total++;
             if (cur == svc.Start) ok++;
         }
@@ -76,34 +83,44 @@ public sealed class RegistryTweak : Tweak
     {
         foreach (var r in Registry)
         {
+            // Whether the key existed, so Revert can remove a key that only the tweak created.
+            journal.SaveOriginal(Id, $"key|{r.Path}", Reg.KeyExists(r.Path));
             journal.SaveOriginal(Id, r.JournalKey, Reg.Get(r.Path, r.Name).ToJson());
             Reg.Set(r.Path, r.Name, r.Kind, r.Value);
         }
         foreach (var svc in Services)
         {
-            var cur = Windows.Services.GetStartMode(svc.Name);
-            if (cur is null) continue;
-            journal.SaveOriginal(Id, svc.JournalKey, cur.Value.ToString());
+            if (Windows.Services.GetStartMode(svc.Name) is not { } cur || IsBootOrSystem(cur)) continue;
+            journal.SaveOriginal(Id, svc.JournalKey, cur.ToString());
             Windows.Services.SetStartMode(svc.Name, svc.Start);
         }
     }
 
+    /// <summary>
+    /// Restores only what has a backup. A setting without one was not changed by Frametide (it already had the
+    /// target value, or the tweak was applied by another tool), so it stays as it is.
+    /// </summary>
     public override void Revert(Journal journal)
     {
-        var entry = journal.Get(Id);
+        if (journal.Get(Id) is not { } entry) return;
         foreach (var r in Registry)
         {
-            // No backup, or the value did not exist before -> remove it = Windows default.
-            Reg.Restore(r.Path, r.Name, RegValue.FromJson(entry?[r.JournalKey]));
+            if (entry.ContainsKey(r.JournalKey)) Reg.Restore(r.Path, r.Name, RegValue.FromJson(entry[r.JournalKey]));
+        }
+        foreach (var path in Registry.Select(r => r.Path).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (entry[$"key|{path}"] is JsonValue v && v.TryGetValue<bool>(out var existed) && !existed) Reg.DeleteKeyIfEmpty(path);
         }
         foreach (var svc in Services)
         {
-            if (Windows.Services.GetStartMode(svc.Name) is null) continue;
-            var original = (string?)entry?[svc.JournalKey];
-            var mode = Enum.TryParse<StartMode>(original, out var m) && m is not (StartMode.Boot or StartMode.System) ? m : StartMode.Manual;
-            Windows.Services.SetStartMode(svc.Name, mode);
+            if (Windows.Services.GetStartMode(svc.Name) is not { } cur || IsBootOrSystem(cur)) continue;
+            if (entry[svc.JournalKey] is not JsonValue v || !v.TryGetValue<string>(out var text)
+                || !Enum.TryParse<StartMode>(text, out var original) || IsBootOrSystem(original)) continue;
+            Windows.Services.SetStartMode(svc.Name, original);
         }
     }
+
+    private static bool IsBootOrSystem(StartMode mode) => mode is StartMode.Boot or StartMode.System;
 }
 
 /// <summary>A tweak with its own logic. Apply/Revert do their own journal backup.</summary>
@@ -117,6 +134,12 @@ public sealed class CustomTweak : Tweak
     public override void Apply(Journal journal) => ApplyAction(journal);
     public override void Revert(Journal journal) => RevertAction(journal);
 }
+
+/// <summary>
+/// Thrown by a revert that restored what it could but had to leave some originals in the journal (e.g. an adapter
+/// that is not present). The engine then keeps the journal entry and logs a warning instead of an error.
+/// </summary>
+public sealed class RevertIncompleteException(string message) : Exception(message);
 
 /// <summary>Detects a harmful tweak set by another tool and restores the Windows default.</summary>
 public sealed class Repair

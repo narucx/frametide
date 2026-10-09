@@ -112,9 +112,27 @@ public static class TweakCatalog
             RevertAction = j =>
             {
                 if (j.Get("power.usb_suspend") is not { } entry) return;
+                var schemes = PowerCfg.GetSchemes().Select(s => s.Guid).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var failed = new List<string>();
                 foreach (var (guid, v) in entry)
-                    PowerCfg.SetSetting(guid, PowerCfg.UsbSubgroup, PowerCfg.UsbSelectiveSuspend, v?["AC"]?.GetValue<int>() ?? 1, v?["DC"]?.GetValue<int>() ?? 1);
+                {
+                    // A deleted plan has nothing left to restore (an empty list means powercfg itself failed).
+                    if (schemes.Count > 0 && !schemes.Contains(guid))
+                    {
+                        Log.Warn($"Power plan {guid} no longer exists, its backup is dropped.");
+                        j.RemoveKey("power.usb_suspend", guid);
+                        continue;
+                    }
+                    try
+                    {
+                        PowerCfg.SetSetting(guid, PowerCfg.UsbSubgroup, PowerCfg.UsbSelectiveSuspend, v?["AC"]?.GetValue<int>() ?? 1, v?["DC"]?.GetValue<int>() ?? 1);
+                        j.RemoveKey("power.usb_suspend", guid);
+                    }
+                    catch (InvalidOperationException e) { failed.Add(e.Message); }
+                }
                 PowerCfg.Refresh();
+                // Throwing keeps the backups that could not be restored.
+                if (failed.Count > 0) throw new InvalidOperationException(string.Join("; ", failed));
             },
         },
         new RegistryTweak
@@ -309,6 +327,7 @@ public static class TweakCatalog
             Id = "ui.classic_context", Category = "Interface", Name = "Classic right-click menu (Windows 10 style)", Restart = RestartNeed.SignOut,
             Description = "Full context menu without \"Show more options\". Matter of taste. Takes effect after restarting Explorer.",
             Status = () => Reg.KeyExists(ClassicMenu + @"\InprocServer32") ? TweakStatus.Applied : TweakStatus.NotApplied,
+            RevertNeedsBackup = false,   // the key exists only for this tweak; removing it is the Windows default
             ApplyAction = _ => Reg.Set(ClassicMenu + @"\InprocServer32", "", RegistryValueKind.String, ""),
             RevertAction = _ => Reg.DeleteKeyTree(ClassicMenu),
         },
@@ -333,8 +352,9 @@ public static class TweakCatalog
     ];
 
     /// <summary>
-    /// Advanced driver properties of the active adapters set to their "off" option. Journal key "(adapter)|(keyword)"
-    /// with the previous value.
+    /// Advanced driver properties of the active adapters set to their "off" option. Journal key
+    /// "nic|(NetCfgInstanceId)|(keyword)" with the previous registry value ({Exists, Type, Value}, like "reg|" keys).
+    /// Versions up to 0.1.0-beta.5 wrote "(connection name)|(keyword)" with the displayed value; those are still reverted.
     /// </summary>
     private static CustomTweak NicPropertyTweak(string id, string name, bool recommended, Risk risk, string description, Regex property, Regex? exclude = null) => new()
     {
@@ -351,7 +371,9 @@ public static class TweakCatalog
             foreach (var (adapter, prop, target) in NetworkAdapters.FindTargets(property, OffValue, exclude))
             {
                 if (prop.Value == target) continue;
-                j.SaveOriginal(id, $"{adapter.Name}|{prop.Keyword}", prop.Value ?? "");
+                // An original saved by an older version under the connection name is the real one: keep only that.
+                if (j.GetOriginal(id, $"{adapter.Name}|{prop.Keyword}") is null)
+                    j.SaveOriginal(id, $"nic|{adapter.NetCfgInstanceId}|{prop.Keyword}", Reg.Get(adapter.RegPath, prop.Keyword).ToJson());
                 NetworkAdapters.SetProperty(adapter, prop.Keyword, target);
                 Log.Info($"{adapter.Name}: '{prop.DisplayName}' -> {prop.Options[target]}");
                 restart[adapter.ClassKey] = adapter;
@@ -361,16 +383,40 @@ public static class TweakCatalog
         RevertAction = j =>
         {
             if (j.Get(id) is not { } entry) return;
-            var adapters = NetworkAdapters.GetConnectedPhysical();
+            // Also adapters that are disconnected right now: their driver key can still be restored.
+            var adapters = NetworkAdapters.GetPhysical(connectedOnly: false);
+            var connected = NetworkAdapters.GetConnectedPhysical().Select(a => a.ClassKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var restart = new Dictionary<string, NetworkAdapter>();
+            var missing = new List<string>();
             foreach (var (key, v) in entry)
             {
-                var parts = key.Split('|', 2);
-                if (parts.Length != 2 || adapters.FirstOrDefault(a => a.Name == parts[0]) is not { } adapter) continue;
-                NetworkAdapters.SetProperty(adapter, parts[1], (string?)v ?? "");
-                restart[adapter.ClassKey] = adapter;
+                if (key.StartsWith("nic|", StringComparison.Ordinal) && key.Split('|') is [_, var netCfgId, var keyword])
+                {
+                    if (adapters.FirstOrDefault(a => a.NetCfgInstanceId.Equals(netCfgId, StringComparison.OrdinalIgnoreCase)) is not { } adapter)
+                    {
+                        missing.Add(key);
+                        continue;
+                    }
+                    Reg.Restore(adapter.RegPath, keyword, RegValue.FromJson(v));
+                    if (connected.Contains(adapter.ClassKey)) restart[adapter.ClassKey] = adapter;
+                }
+                else if (key.Split('|', 2) is [var connection, var oldKeyword])
+                {
+                    // Old format: only the displayed value is known (the driver default when nothing was set).
+                    if (adapters.FirstOrDefault(a => a.Name == connection) is not { } adapter)
+                    {
+                        missing.Add(key);
+                        continue;
+                    }
+                    NetworkAdapters.SetProperty(adapter, oldKeyword, v is JsonValue s && s.TryGetValue<string>(out var text) ? text : "");
+                    if (connected.Contains(adapter.ClassKey)) restart[adapter.ClassKey] = adapter;
+                }
+                else continue;
+                j.RemoveKey(id, key);
             }
             foreach (var a in restart.Values) NetworkAdapters.Restart(a);
+            if (missing.Count > 0)
+                throw new RevertIncompleteException($"network adapter not found, backup kept for {string.Join(", ", missing)}");
         },
     };
 

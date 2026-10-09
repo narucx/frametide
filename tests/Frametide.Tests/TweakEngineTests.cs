@@ -63,6 +63,96 @@ public sealed class TweakEngineTests : IDisposable
     }
 
     [Fact]
+    public void A_tweak_without_backup_is_not_reverted()
+    {
+        // Already set before: the profile skips the tweak, so nothing is backed up and Revert must leave it alone.
+        Reg.Set(KeyPath, "A", RegistryValueKind.DWord, 1L);
+        Reg.Set(KeyPath, "B", RegistryValueKind.String, "on");
+        var t = TestTweak();
+        var (engine, journal) = Engine(t);
+        engine.ApplyProfile(new TweakProfile("Test", "", ["test.reg"]));
+        Assert.Empty(journal.TweakIds);
+
+        Assert.False(engine.CanRevert(t));
+        Assert.Empty(engine.RevertableIds());
+        Assert.False(engine.Revert(t));
+        Assert.Equal(1L, Convert.ToInt64(Reg.Get(KeyPath, "A").Value));
+        Assert.Equal("on", Reg.Get(KeyPath, "B").Value);
+    }
+
+    [Fact]
+    public void Revert_restores_only_settings_with_a_backup()
+    {
+        Reg.Set(KeyPath, "A", RegistryValueKind.DWord, 1L);
+        Reg.Set(KeyPath, "B", RegistryValueKind.String, "on");
+        var t = TestTweak();
+        var (engine, journal) = Engine(t);
+        journal.SaveOriginal(t.Id, $@"reg|{KeyPath}|A", new RegValue(true, RegistryValueKind.DWord, 7).ToJson());
+
+        Assert.True(engine.Revert(t));
+        Assert.Equal(7L, Convert.ToInt64(Reg.Get(KeyPath, "A").Value));
+        Assert.Equal("on", Reg.Get(KeyPath, "B").Value);     // no backup: not deleted
+        Assert.Empty(journal.TweakIds);
+    }
+
+    [Fact]
+    public void Revert_removes_a_key_that_only_the_tweak_created()
+    {
+        var t = TestTweak();
+        var (engine, _) = Engine(t);
+        Assert.False(Reg.KeyExists(KeyPath));
+        Assert.True(engine.Apply(t).Success);
+        Assert.True(engine.Revert(t));
+        Assert.False(Reg.KeyExists(KeyPath));
+    }
+
+    [Fact]
+    public void Revert_keeps_a_key_that_existed_before()
+    {
+        Reg.Set(KeyPath, "Other", RegistryValueKind.DWord, 1L);
+        Reg.Remove(KeyPath, "Other");                          // key exists, but empty
+        var t = TestTweak();
+        var (engine, _) = Engine(t);
+        engine.Apply(t);
+        engine.Revert(t);
+        Assert.True(Reg.KeyExists(KeyPath));
+    }
+
+    [Fact]
+    public void A_failed_or_incomplete_revert_keeps_the_backup()
+    {
+        Tweak Make(string id, Exception error) => new CustomTweak
+        {
+            Id = id, Category = "Test", Name = id, Description = "",
+            Status = () => TweakStatus.Applied, ApplyAction = j => j.SaveOriginal(id, "k", "v"), RevertAction = _ => throw error,
+        };
+        var failing = Make("failing", new InvalidOperationException("powercfg failed"));
+        var incomplete = Make("incomplete", new RevertIncompleteException("adapter not found"));
+        var (engine, journal) = Engine(failing, incomplete);
+        engine.Apply(failing);
+        engine.Apply(incomplete);
+
+        Assert.False(engine.Revert(failing));
+        Assert.False(engine.Revert(incomplete));
+        Assert.Equal(["failing", "incomplete"], journal.TweakIds);
+    }
+
+    [Fact]
+    public void A_tweak_that_needs_no_backup_can_always_be_reverted()
+    {
+        var reverted = false;
+        var t = new CustomTweak
+        {
+            Id = "test.nobackup", Category = "Test", Name = "No backup needed", Description = "", RevertNeedsBackup = false,
+            Status = () => TweakStatus.Applied, ApplyAction = _ => { }, RevertAction = _ => reverted = true,
+        };
+        var (engine, _) = Engine(t);
+        Assert.True(engine.CanRevert(t));
+        Assert.True(engine.Revert(t));
+        Assert.True(reverted);
+    }
+
+    [Fact]
     public void Status_is_partial_when_only_some_values_match()
     {
         Reg.Set(KeyPath, "A", RegistryValueKind.DWord, 1L);

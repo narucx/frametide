@@ -120,7 +120,7 @@ public static class LaunchPriority
         // Entries that could not be restored stay in front of the new ones: restored last, so their originals win.
         List<IfeoEntry> kept = state is null ? [] : RestoreAndKeepFailed(state.Ifeo);
         var set = Set(cfg.Games, done => JsonFile.Write(AppPaths.IfeoState, new IfeoState { Ifeo = [.. kept, .. done] }));
-        if (kept.Count == 0 && set.Count == 0) File.Delete(AppPaths.IfeoState);
+        if (kept.Count == 0 && set.Count == 0) JsonFile.Delete(AppPaths.IfeoState);
         else JsonFile.Write(AppPaths.IfeoState, new IfeoState { Ifeo = [.. kept, .. set] });
     }
 
@@ -128,7 +128,7 @@ public static class LaunchPriority
     {
         if (!TryReadPersistent(out var state)) return;
         if (state is not null && RestoreAndKeepFailed(state.Ifeo).Count > 0) return;
-        File.Delete(AppPaths.IfeoState);
+        JsonFile.Delete(AppPaths.IfeoState);
     }
 
     /// <summary>Restores the entries; the ones that failed are written back to the backup, so it never loses them.</summary>

@@ -135,7 +135,7 @@ public sealed class BenchRecorder : IDisposable
                 _liveId = null;
             }
         }
-        if (Current?.Id == rec.Id) File.Delete(RecordingFile);
+        if (Current?.Id == rec.Id) JsonFile.Delete(RecordingFile);
         if (!File.Exists(rec.Csv)) { Log.Warn($"Benchmark {rec.Game}: no data recorded."); RemoveRaw(rec); return null; }
 
         FrameStats r;
@@ -248,7 +248,7 @@ public sealed class BenchRecorder : IDisposable
     private static void RemoveRaw(Recording rec)
     {
         File.Delete(rec.Csv);
-        File.Delete(Path.ChangeExtension(rec.Csv, ".json"));
+        JsonFile.Delete(Path.ChangeExtension(rec.Csv, ".json"));
     }
 
     public void Dispose() => _cpu.Dispose();

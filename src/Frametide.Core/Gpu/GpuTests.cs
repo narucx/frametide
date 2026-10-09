@@ -537,7 +537,7 @@ public static class GpuTests
 
     private static void DeleteMarker()
     {
-        try { File.Delete(MarkerPath); }
+        try { JsonFile.Delete(MarkerPath); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { Log.Warn($"GPU test marker: {e.Message}"); }
     }
 

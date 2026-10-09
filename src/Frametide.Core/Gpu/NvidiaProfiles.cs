@@ -374,7 +374,7 @@ public static class NvidiaProfiles
             Log.Warn($"NVIDIA profiles: {failed.Count} of {undo.Count} value(s) could not be restored, they stay in the undo list.");
             return;
         }
-        File.Delete(AppPaths.NvProfilesUndo);
+        JsonFile.Delete(AppPaths.NvProfilesUndo);
         Log.Ok("NVIDIA profiles restored to the previous values.");
     }
 }

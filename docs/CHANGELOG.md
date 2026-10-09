@@ -15,6 +15,10 @@
 - GPU tests: a crash or power loss mid-test no longer leaves the GPU locked or at the maximum power limit (reset at the next start)
 - GPU profiles made on another GPU are refused; after a driver change the sign-in profile is skipped until re-tested
 - Exiting while an automatic Game Boost START runs waits for it first
+- Backup of original values: written to disk before it replaces the old file (the previous version is kept as .bak); a damaged backup is never overwritten, the previous version is used or an error is shown
+- Revert only restores settings Frametide actually changed; tweaks that were already active before have no Revert button, and boot/system services are never touched
+- Network adapter tweaks: a property that did not exist before is removed again on revert instead of being set to the driver default; adapters are recognized by their id, so renamed or unplugged adapters keep their backup
+- USB selective suspend: a failed revert keeps the backup instead of losing it
 
 ### Security
 - Native libraries and Windows tools are only loaded from System32, never from the current folder or PATH; .NET startup hooks are off

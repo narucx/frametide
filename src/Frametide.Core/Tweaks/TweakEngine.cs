@@ -51,15 +51,36 @@ public sealed class TweakEngine(IReadOnlyList<Tweak> tweaks, IReadOnlyList<Repai
         return new TweakResult(false, status, null, null);
     }
 
+    /// <summary>Whether Revert has something to restore. Throws when the journal is damaged.</summary>
+    public bool CanRevert(Tweak tweak) => !tweak.RevertNeedsBackup || journal.Contains(tweak.Id);
+
+    /// <summary>Ids of the tweaks that can be reverted (see <see cref="CanRevert"/>). Throws when the journal is damaged.</summary>
+    public IReadOnlySet<string> RevertableIds()
+    {
+        var withBackup = journal.TweakIds.ToHashSet();
+        return Tweaks.Where(t => !t.RevertNeedsBackup || withBackup.Contains(t.Id)).Select(t => t.Id).ToHashSet();
+    }
+
     public bool Revert(Tweak tweak)
     {
         Log.Info($"Revert: {tweak.Name}");
         try
         {
+            // Without a backup there is no original to go back to: the settings stay as they are.
+            if (!CanRevert(tweak))
+            {
+                Log.Warn($"{tweak.Name}: no backup of the original values (not changed by Frametide), left as is.");
+                return false;
+            }
             tweak.Revert(journal);
             journal.Remove(tweak.Id);
             Log.Ok($"Reverted: {tweak.Name}");
             return true;
+        }
+        catch (RevertIncompleteException e)
+        {
+            Log.Warn($"{tweak.Name} only partly reverted: {e.Message}");
+            return false;
         }
         catch (Exception e) when (e is not OutOfMemoryException)
         {

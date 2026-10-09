@@ -7,8 +7,11 @@ namespace Frametide.Core.Windows;
 /// <summary>An advanced driver property ("Energy Efficient Ethernet" etc.) and its allowed values.</summary>
 public sealed record AdapterProperty(string Keyword, string DisplayName, string? Value, IReadOnlyDictionary<string, string> Options);
 
-/// <summary>A physical, connected network adapter and its driver key in the registry.</summary>
-public sealed record NetworkAdapter(string Name, string Description, string ClassKey, string? InstanceId)
+/// <summary>
+/// A physical network adapter and its driver key in the registry. NetCfgInstanceId is the stable id (the connection
+/// name can be renamed by the user).
+/// </summary>
+public sealed record NetworkAdapter(string Name, string Description, string ClassKey, string? InstanceId, string NetCfgInstanceId)
 {
     public string RegPath => $@"HKLM:\{ClassKey}";
 }
@@ -23,10 +26,17 @@ public static class NetworkAdapters
     private const string ClassRoot = @"SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}";
     private const int NcfPhysical = 0x4;
 
-    public static IReadOnlyList<NetworkAdapter> GetConnectedPhysical()
+    public static IReadOnlyList<NetworkAdapter> GetConnectedPhysical() => GetPhysical(connectedOnly: true);
+
+    /// <summary>
+    /// Physical adapters. With connectedOnly = false also disconnected and unplugged ones whose driver key still exists
+    /// (needed to restore values); those are named after their interface or, if Windows has none, the driver.
+    /// </summary>
+    public static IReadOnlyList<NetworkAdapter> GetPhysical(bool connectedOnly)
     {
-        var up = NetworkInterface.GetAllNetworkInterfaces()
-            .Where(n => n.OperationalStatus == OperationalStatus.Up)
+        var nics = NetworkInterface.GetAllNetworkInterfaces()
+            .Where(n => !connectedOnly || n.OperationalStatus == OperationalStatus.Up)
+            .DistinctBy(n => n.Id, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(n => n.Id, n => n, StringComparer.OrdinalIgnoreCase);
         var list = new List<NetworkAdapter>();
         using var root = Registry.LocalMachine.OpenSubKey(ClassRoot);
@@ -35,8 +45,11 @@ public static class NetworkAdapters
         {
             using var key = root.OpenSubKey(sub);
             if (key is null || (Convert.ToInt32(key.GetValue("Characteristics") ?? 0) & NcfPhysical) == 0) continue;
-            if (key.GetValue("NetCfgInstanceId") is not string id || !up.TryGetValue(id, out var nic)) continue;
-            list.Add(new NetworkAdapter(nic.Name, nic.Description, $@"{ClassRoot}\{sub}", key.GetValue("DeviceInstanceID") as string));
+            if (key.GetValue("NetCfgInstanceId") is not string id) continue;
+            var found = nics.TryGetValue(id, out var nic);
+            if (connectedOnly && !found) continue;
+            var driver = key.GetValue("DriverDesc") as string ?? id;
+            list.Add(new NetworkAdapter(nic?.Name ?? driver, nic?.Description ?? driver, $@"{ClassRoot}\{sub}", key.GetValue("DeviceInstanceID") as string, id));
         }
         return list;
     }

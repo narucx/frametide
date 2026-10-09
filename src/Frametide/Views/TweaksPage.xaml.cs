@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using Frametide.Core.Infrastructure;
 using Frametide.Core.Tweaks;
 using Frametide.Core.Windows;
 using static Frametide.Localization.Loc;
@@ -11,6 +12,9 @@ public partial class TweaksPage : UserControl
 {
     private readonly TweakEngine _engine = TweakEngine.Default;
     private readonly MainWindow _main;
+
+    /// <summary>Tweaks with a backup of their originals (only those get a Revert button).</summary>
+    private IReadOnlySet<string> _revertable = new HashSet<string>();
 
     /// <summary>Status per tweak after the last check; the overview reads the summary from here.</summary>
     public IReadOnlyDictionary<string, TweakStatus> Status { get; private set; } = new Dictionary<string, TweakStatus>();
@@ -40,11 +44,23 @@ public partial class TweaksPage : UserControl
 
     public async Task CheckAsync()
     {
-        var (status, findings) = await _main.RunAsync("Checking tweaks", () =>
-            (_engine.Tweaks.ToDictionary(t => t.Id, _engine.GetStatus), _engine.FindRepairs()));
+        string? journalError = null;
+        IReadOnlySet<string> Revertable()
+        {
+            try { return _engine.RevertableIds(); }
+            catch (System.IO.InvalidDataException e) { journalError = e.Message; return new HashSet<string>(); }
+        }
+        var (status, findings, revertable) = await _main.RunAsync("Checking tweaks", () =>
+            (_engine.Tweaks.ToDictionary(t => t.Id, _engine.GetStatus), _engine.FindRepairs(), Revertable()));
         Status = status;
+        _revertable = revertable;
         Show(findings);
         Checked?.Invoke();
+        if (journalError is not null)
+        {
+            Log.Error(journalError);
+            Info(T("The backup of original values is damaged. Tweaks cannot be applied or reverted until it is repaired. Details are in the log."), MessageBoxImage.Error);
+        }
     }
 
     private void Show(IReadOnlyList<RepairFinding> findings)
@@ -85,14 +101,17 @@ public partial class TweaksPage : UserControl
         if (t.Risk == Risk.Risky) right.Add(Badge("Risky", "Bad", "BadSoft"));
         if (t.Restart == RestartNeed.Reboot) right.Add(Badge("Reboot", "Muted", "Panel3"));
         if (t.Restart == RestartNeed.SignOut) right.Add(Badge("Sign out", "Muted", "Panel3"));
+        var canRevert = _revertable.Contains(t.Id);
         Button button = st switch
         {
             TweakStatus.NotAvailable => Button("Not available"),
-            TweakStatus.Applied or TweakStatus.Partial => Button("Revert", async () =>
+            TweakStatus.Applied or TweakStatus.Partial when canRevert => Button("Revert", async () =>
             {
                 await _main.RunAsync("Tweak", () => _engine.Revert(t));
                 await CheckAsync();
             }),
+            // Already set before Frametide (or by another tool): there is no original to go back to.
+            TweakStatus.Applied => Button("No backup"),
             _ => Button("Apply", async () =>
             {
                 var r = await _main.RunAsync("Tweak", () => _engine.Apply(t));
@@ -100,7 +119,12 @@ public partial class TweaksPage : UserControl
                 if (!r.Success && r.Hint is not null) Info(T(r.Hint), MessageBoxImage.Warning);
             }, "Primary"),
         };
-        button.IsEnabled = st != TweakStatus.NotAvailable;
+        button.IsEnabled = st != TweakStatus.NotAvailable && (st != TweakStatus.Applied || canRevert);
+        if (st == TweakStatus.Applied && !canRevert)
+        {
+            button.ToolTip = T("This setting was already active before Frametide changed anything, so there is no original value to restore.");
+            ToolTipService.SetShowOnDisabled(button, true);
+        }
         button.Margin = new Thickness(12, 0, 0, 0);
         button.MinWidth = 120;
         right.Add(button);

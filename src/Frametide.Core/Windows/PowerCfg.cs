@@ -27,10 +27,14 @@ public static partial class PowerCfg
         return hex.Count < 2 ? null : (hex[^2], hex[^1]);
     }
 
+    /// <summary>Throws when powercfg fails (e.g. the plan no longer exists), so a revert keeps its backup.</summary>
     public static void SetSetting(string scheme, string subgroup, string setting, int ac, int dc)
     {
-        NativeProcess.Run("powercfg.exe", ["/setacvalueindex", scheme, subgroup, setting, ac.ToString()]);
-        NativeProcess.Run("powercfg.exe", ["/setdcvalueindex", scheme, subgroup, setting, dc.ToString()]);
+        foreach (var (verb, value) in new[] { ("/setacvalueindex", ac), ("/setdcvalueindex", dc) })
+        {
+            var r = NativeProcess.Run("powercfg.exe", [verb, scheme, subgroup, setting, value.ToString()]);
+            if (r.ExitCode != 0) throw new InvalidOperationException($"powercfg {verb} {scheme} failed: {(r.Output + r.Error).Trim()}");
+        }
     }
 
     /// <summary>Re-activates the current plan so changed values take effect.</summary>
