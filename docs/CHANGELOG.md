@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## Unreleased
+
+### Changed
+- Updates come from a feed on GitHub Pages; releases only contain the installer (Frametide-win.msi)
+
 ## v0.1.0-beta.4
 
 ### Changed

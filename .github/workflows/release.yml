@@ -1,13 +1,21 @@
 name: Release
 
-# A pushed tag vX.Y.Z (or vX.Y.Z-beta.N) builds, packs (Velopack) and publishes a GitHub release. The installed apps
-# update from it.
+# A pushed tag vX.Y.Z (or vX.Y.Z-beta.N) builds and packs (Velopack), publishes a GitHub release with the MSI and
+# puts the update feed on GitHub Pages, where the installed apps look for updates:
+#   https://narucx.github.io/frametide/stable/  stable releases
+#   https://narucx.github.io/frametide/beta/    betas and stable releases (a beta always gets the next stable one)
 on:
   push:
     tags: ['v*.*.*']
 
 permissions:
   contents: write
+
+env:
+  FEED_URL: https://narucx.github.io/frametide
+  # Last release that also carries the update files as release assets: beta.4 and older look for updates there.
+  # Remove together with the step "Release with update files" once it is out.
+  TRANSITION_TAG: v0.1.0-beta.5
 
 jobs:
   release:
@@ -31,8 +39,8 @@ jobs:
           if (-not $m.Success) { throw "docs/CHANGELOG.md has no section '## v$v'" }
           Set-Content release-notes.md $m.Groups[1].Value.Trim()
           "version=$v" >> $env:GITHUB_OUTPUT
-          # Versions like 1.0.0-beta.1 are published as pre-releases (not offered as "latest").
-          "pre=$(if ($v.Contains('-')) { '--pre' })" >> $env:GITHUB_OUTPUT
+          # Versions like 1.0.0-beta.1 are GitHub pre-releases and only go into the beta feed.
+          "pre=$($v.Contains('-'))".ToLower() >> $env:GITHUB_OUTPUT
 
       - run: dotnet test --solution Frametide.slnx -c Release
 
@@ -41,9 +49,35 @@ jobs:
       # Same version as the Velopack package the app uses.
       - run: dotnet tool install -g vpk --version 1.2.161
 
-      # Previous release for delta updates; there is none before the first release.
-      - run: vpk download github --repoUrl https://github.com/${{ github.repository }} --token ${{ secrets.GITHUB_TOKEN }} ${{ steps.ver.outputs.pre }}
-        continue-on-error: true
+      # Pages replaces the whole site on every deployment: fetch both feeds (index + files of the newest version).
+      # Older files are dropped; an app further behind gets the full package instead of deltas.
+      - name: Fetch the current update feeds
+        shell: pwsh
+        run: |
+          foreach ($channel in 'stable', 'beta') {
+            $dir = New-Item -ItemType Directory -Force "site/$channel"
+            try { Invoke-WebRequest "$env:FEED_URL/$channel/releases.win.json" -OutFile "$dir/releases.win.json" }
+            catch { Write-Host "No $channel feed yet."; continue }
+            $assets = (Get-Content "$dir/releases.win.json" -Raw | ConvertFrom-Json).Assets
+            $newest = $assets | Sort-Object { [System.Management.Automation.SemanticVersion]$_.Version } | Select-Object -Last 1
+            foreach ($a in $assets | Where-Object Version -eq $newest.Version) {
+              Invoke-WebRequest "$env:FEED_URL/$channel/$($a.FileName)" -OutFile "$dir/$($a.FileName)"
+            }
+          }
+
+      # Previous release in the same channel, for delta packages.
+      - name: Previous release
+        shell: pwsh
+        run: |
+          $channel = if ('${{ steps.ver.outputs.pre }}' -eq 'true') { 'beta' } else { 'stable' }
+          New-Item -ItemType Directory -Force Releases | Out-Null
+          Copy-Item "site/$channel/*" Releases
+          if (-not (Get-ChildItem Releases -Filter *-full.nupkg)) {
+            # Until the first release with a Pages feed: take it from the GitHub releases.
+            $pre = if ($channel -eq 'beta') { '--pre' }
+            vpk download github --repoUrl https://github.com/${{ github.repository }} --token ${{ secrets.GITHUB_TOKEN }} $pre
+            if ($LASTEXITCODE -ne 0) { Write-Host 'No previous release, no delta package.' }
+          }
 
       # Installed for all users (C:\Program Files\Frametide): Frametide runs elevated and starts itself elevated at
       # sign-in, so its files must only be changeable by administrators. Updates ask for UAC (Velopack elevates).
@@ -52,17 +86,52 @@ jobs:
           --mainExe Frametide.exe --packTitle Frametide --icon src/Frametide/Assets/frametide.ico --releaseNotes release-notes.md
           --msi --instLocation PerMachine --noPortable
 
-      # Uploaded as a draft first: Velopack always builds Setup.exe as well, which installs per user (user-writable
-      # folder). Only the MSI is offered for download.
-      - run: >
-          vpk upload github --repoUrl https://github.com/${{ github.repository }} ${{ steps.ver.outputs.pre }}
-          --releaseName "Frametide v${{ steps.ver.outputs.version }}" --tag ${{ github.ref_name }}
-          --token ${{ secrets.GITHUB_TOKEN }}
+      # Betas go into the beta feed, stable releases into both. Velopack also builds Setup.exe (per-user install into
+      # a user-writable folder): it is published nowhere.
+      - name: Update the feeds
+        shell: pwsh
+        run: |
+          $channels = if ('${{ steps.ver.outputs.pre }}' -eq 'true') { @('beta') } else { @('stable', 'beta') }
+          foreach ($channel in $channels) {
+            Remove-Item "site/$channel/*"
+            Copy-Item Releases/releases.win.json, "Releases/Frametide-${{ steps.ver.outputs.version }}-*.nupkg" "site/$channel"
+          }
+          Get-ChildItem -Recurse site | ForEach-Object { $_.FullName }
 
-      - name: Publish with the MSI only
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+      - name: Release with the MSI
+        if: github.ref_name != env.TRANSITION_TAG
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release delete-asset ${{ github.ref_name }} Frametide-win-Setup.exe --yes
-          gh release edit ${{ github.ref_name }} --draft=false
+        run: >
+          gh release create ${{ github.ref_name }} Releases/Frametide-win.msi --verify-tag
+          --title "Frametide v${{ steps.ver.outputs.version }}" --notes-file release-notes.md
+          ${{ steps.ver.outputs.pre == 'true' && '--prerelease' || '' }}
+
+      - name: Release with update files
+        if: github.ref_name == env.TRANSITION_TAG
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          gh release create ${{ github.ref_name }} Releases/Frametide-win.msi Releases/releases.win.json
+          Releases/RELEASES (Get-ChildItem Releases/Frametide-${{ steps.ver.outputs.version }}-*.nupkg) --verify-tag
+          --title "Frametide v${{ steps.ver.outputs.version }}" --notes-file release-notes.md
+          ${{ steps.ver.outputs.pre == 'true' && '--prerelease' || '' }}
+
+  feed:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v5

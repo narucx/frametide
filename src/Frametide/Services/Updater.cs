@@ -5,17 +5,21 @@ using Velopack.Sources;
 
 namespace Frametide.Services;
 
-/// <summary>Updates from GitHub Releases (Velopack). Only active in an installed copy, not in a dev build.</summary>
+/// <summary>
+/// Updates through Velopack from the feed on GitHub Pages (the releases only carry the MSI). Only active in an
+/// installed copy, not in a dev build.
+/// </summary>
 public sealed class Updater
 {
-    public const string RepoUrl = "https://github.com/narucx/frametide";
+    /// <summary>"stable" has stable releases only, "beta" has betas and stable releases.</summary>
+    public const string FeedUrl = "https://narucx.github.io/frametide/";
 
     private static readonly bool RunningPrerelease =
         typeof(Updater).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0].Contains('-') == true;
 
     /// <summary>
-    /// Also offer beta versions. The newest version wins either way, so a beta always gets the next stable release
-    /// (1.0.0 is newer than 1.0.0-beta.2). Default: on while a beta is installed.
+    /// Also offer beta versions. The beta feed also has the stable releases, so a beta always gets the next stable
+    /// release (1.0.0 is newer than 1.0.0-beta.2). Default: on while a beta is installed.
     /// </summary>
     public static bool IncludeBetas
     {
@@ -23,7 +27,7 @@ public sealed class Updater
         set => Settings.Set("BetaUpdates", value);
     }
 
-    private readonly UpdateManager _manager = new(new GithubSource(RepoUrl, accessToken: null, prerelease: IncludeBetas));
+    private readonly UpdateManager _manager = new(new SimpleWebSource(FeedUrl + (IncludeBetas ? "beta/" : "stable/")));
 
     public bool IsInstalled => _manager.IsInstalled;
 

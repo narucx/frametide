@@ -20,7 +20,8 @@ for a copy in such a folder.
 
 ## Update
 
-Frametide checks GitHub Releases for updates and installs them on request (with a UAC prompt). Releases are
+Frametide checks for updates (feed on GitHub Pages, built with each release) and installs them on request
+(with a UAC prompt). Releases are
 cumulative: always install the newest one.
 
 ## Uninstall
