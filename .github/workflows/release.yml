@@ -13,9 +13,6 @@ permissions:
 
 env:
   FEED_URL: https://narucx.github.io/frametide
-  # Last release that also carries the update files as release assets: beta.4 and older look for updates there.
-  # Remove together with the step "Release with update files" once it is out.
-  TRANSITION_TAG: v0.1.0-beta.5
 
 jobs:
   release:
@@ -57,7 +54,12 @@ jobs:
           foreach ($channel in 'stable', 'beta') {
             $dir = New-Item -ItemType Directory -Force "site/$channel"
             try { Invoke-WebRequest "$env:FEED_URL/$channel/releases.win.json" -OutFile "$dir/releases.win.json" }
-            catch { Write-Host "No $channel feed yet."; continue }
+            catch {
+              # An empty feed instead of a 404: the app then says "up to date" instead of "update check failed".
+              Write-Host "No $channel feed yet."
+              Set-Content "$dir/releases.win.json" '{"Assets":[]}'
+              continue
+            }
             $assets = (Get-Content "$dir/releases.win.json" -Raw | ConvertFrom-Json).Assets
             $newest = $assets | Sort-Object { [System.Management.Automation.SemanticVersion]$_.Version } | Select-Object -Last 1
             foreach ($a in $assets | Where-Object Version -eq $newest.Version) {
@@ -103,23 +105,11 @@ jobs:
           path: site
 
       - name: Release with the MSI
-        if: github.ref_name != env.TRANSITION_TAG
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: >
           gh release create ${{ github.ref_name }} Releases/Frametide-win.msi --verify-tag
-          --title "Frametide v${{ steps.ver.outputs.version }}" --notes-file release-notes.md
-          ${{ steps.ver.outputs.pre == 'true' && '--prerelease' || '' }}
-
-      - name: Release with update files
-        if: github.ref_name == env.TRANSITION_TAG
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: >
-          gh release create ${{ github.ref_name }} Releases/Frametide-win.msi Releases/releases.win.json
-          Releases/RELEASES (Get-ChildItem Releases/Frametide-${{ steps.ver.outputs.version }}-*.nupkg) --verify-tag
           --title "Frametide v${{ steps.ver.outputs.version }}" --notes-file release-notes.md
           ${{ steps.ver.outputs.pre == 'true' && '--prerelease' || '' }}
 
