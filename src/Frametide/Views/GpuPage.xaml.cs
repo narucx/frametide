@@ -215,7 +215,7 @@ public partial class GpuPage : UserControl
     private void StartUndervolt()
     {
         if (!TryRead(UvTarget, T("Target clock"), 0, 3500, out var target) || !TryRead(UvStep, T("Step"), 15, 100, out var step)
-            || !TryRead(UvRound, T("Round"), 20, 600, out var round) || !TryRead(UvMax, T("Max offset"), 30, 1000, out var maxOffset)
+            || !TryRead(UvRound, T("Round"), 20, 600, out var round) || !TryRead(UvMax, T("Max offset"), 30, GpuTests.MaxSafeOffset, out var maxOffset)
             || !TryRead(UvTemp, T("Temperature limit"), 60, 90, out var temp)) return;
         if (target is > 0 and < 1000) { Info(T("Invalid value for {0}: allowed {1}-{2}.", T("Target clock"), 1000, 3500), MessageBoxImage.Warning); return; }
         if (Busy()) return;

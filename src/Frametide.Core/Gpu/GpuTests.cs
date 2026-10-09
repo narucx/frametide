@@ -286,8 +286,15 @@ public static class GpuTests
         }
     }
 
+    /// <summary>The search never goes further than this, whatever the user enters.</summary>
+    public const int MaxSafeOffset = 450;
+
+    /// <summary>Below this voltage the search stops, even if the GPU still passes the stress test.</summary>
+    public const double MinSafeVoltage = 0.85;
+
     private static void Undervolt(GpuTestProgress p, UndervoltOptions o, CancellationToken cancel)
     {
+        o = o with { MaxOffset = Math.Clamp(o.MaxOffset, o.Step, MaxSafeOffset) };
         var ctx = new Context(p, o.TempLimit, cancel);
         try
         {
@@ -323,11 +330,18 @@ public static class GpuTests
             // PROBE: coarse steps until a failure, then one fine step in between.
             p.Phase = TestPhase.Probe;
             StressRound? good = null, bad = null;
+            var floorReached = false;
             for (var offset = coarse; offset <= o.MaxOffset; offset += coarse)
             {
                 var r = Round(ctx, L.T("Round {0}", p.RoundCount), offset, o.RoundSec, target);
                 p.Add(r);
                 cancel.ThrowIfCancellationRequested();
+                if (r.Stable && r.Voltage is > 0 and < MinSafeVoltage)
+                {
+                    Say(p, "Stable at +{0} MHz, but {1} V is below the safe minimum of {2} V: stopping here.", offset, r.Voltage, MinSafeVoltage);
+                    floorReached = true;
+                    break;
+                }
                 if (r.Stable)
                 {
                     good = r;
@@ -340,7 +354,7 @@ public static class GpuTests
                 break;
             }
             // Stable up to the limit: the GPU's real limit was not found, more may be possible.
-            if (bad is null && good is not null)
+            if (bad is null && good is not null && !floorReached && good.Offset + coarse <= MaxSafeOffset)
                 Say(p, "Stable up to the maximum offset (+{0} MHz) without errors. Raise MAX OFFSET to look for more.", good.Offset);
             if (bad is { Thermal: false })
             {
@@ -356,9 +370,15 @@ public static class GpuTests
             }
             if (good is null) throw new InvalidOperationException(L.T("No stable undervolt step found. Your GPU already runs close to its limit at this clock."));
 
-            // REPLAY: the best step twice as long, one step lower if needed.
+            // REPLAY: the best step twice as long, one step lower if needed. When the search found the GPU's limit
+            // (computation errors, driver reset), one step of safety margin: games load the GPU differently.
             p.Phase = TestPhase.Replay;
             var final = good.Offset;
+            if (bad is { Thermal: false } && final - o.Step > 0)
+            {
+                final -= o.Step;
+                Say(p, "Limit found at +{0} MHz. Safety margin: using +{1} MHz.", good.Offset, final);
+            }
             StressRound? replay = null;
             for (var attempt = 0; attempt < 3; attempt++)
             {
@@ -394,7 +414,7 @@ public static class GpuTests
             p.Result = result;
             p.Phase = TestPhase.Done;
             Say(p, "Done: {0} MHz at {1} V instead of {2} V. Power {3} W -> {4} W.", target, replay.Voltage, stock.Voltage, stock.AvgPower, replay.AvgPower);
-            if (bad is null && final == good.Offset)
+            if (bad is null && !floorReached && final == good.Offset && good.Offset + coarse <= MaxSafeOffset)
             {
                 const string limited = "Limited by MAX OFFSET, not by the GPU: a higher MAX OFFSET may give a lower voltage.";
                 p.Status += " " + L.T(limited);

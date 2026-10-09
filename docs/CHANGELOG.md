@@ -4,6 +4,9 @@
 
 ### Fixed
 - Smart undervolt says when it stopped at MAX OFFSET without finding the GPU's limit (more may be possible)
+
+### Changed
+- Smart undervolt stays in safe limits: MAX OFFSET at most +450 MHz, the search stops below 0.85 V, and when it finds the GPU's limit the saved profile keeps one step of safety margin
 - "Installed apps" in Windows Settings shows the installed version after an update (it kept showing the first version)
 
 ## v0.1.0-beta.6
