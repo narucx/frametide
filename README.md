@@ -7,6 +7,15 @@ Every change is backed up and can be reverted exactly; nothing is hidden, no tel
 > requests, no warranty: it changes Windows settings, GPU clocks and voltages. Use it at your own risk and create
 > a restore point first.
 
+## Screenshots
+
+![Overview](docs/screenshots/overview.png)
+
+| | |
+|---|---|
+| ![Tweaks & profiles](docs/screenshots/tweaks.png) | ![Game Boost](docs/screenshots/gameboost.png) |
+| ![Benchmark](docs/screenshots/benchmark.png) | ![GPU & undervolt](docs/screenshots/gpu.png) |
+
 ## Install
 
 Download `Frametide-win.msi` from the [latest release](https://github.com/narucx/frametide/releases/latest)
