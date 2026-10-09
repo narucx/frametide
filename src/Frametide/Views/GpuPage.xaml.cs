@@ -100,7 +100,11 @@ public partial class GpuPage : UserControl
         ManPower.Value = snap?.PowerLimitW ?? info.PowerDefaultW;
         ManPowerText.Text = $"{(int)ManPower.Value} W";
         // Continue showing a test that runs while the page was closed.
-        if (GpuTests.Running && GpuTests.Current is { } running && _uv is null && _test is null) _uv = running;
+        if (GpuTests.Running && GpuTests.Current is { } running && _uv is null && _test is null)
+        {
+            if (running.Kind == GpuTestKind.ProfileTest) _test = running;
+            else _uv = running;
+        }
         ShowProfiles();
         Tick();
     }
@@ -270,9 +274,8 @@ public partial class GpuPage : UserControl
         UvLiveGrid.Visibility = Visibility.Collapsed;
         _uv = null;
         UpdateTuneState();
-        if (p.Result is { } result)
+        if (p.Result is { } result)   // already saved by the test
         {
-            GpuProfiles.Save(result);
             ShowResult(result);
             Info(T("Profile saved: {0}\n\nApply it (Saved profiles > Apply) and play a few rounds. If you get crashes or graphics glitches, run the smart undervolt again with a smaller max offset.", result.Name));
         }
@@ -334,6 +337,10 @@ public partial class GpuPage : UserControl
             var title = p.Name;
             if (active == p.Name) title += "  " + T("(active now)");
             if (signIn == p.Name) title += "  " + T("(applied at sign-in)");
+            var otherGpu = _info is not null && GpuTuning.OtherGpu(p, _info);
+            var retest = _info is not null && GpuTuning.DriverChanged(p, _info);
+            if (otherGpu) title += "  " + T("(made on another GPU, cannot be applied)");
+            else if (retest) title += "  " + T("(driver changed, re-test recommended)");
             var name = p.Name;
             var right = new List<UIElement>
             {
@@ -351,7 +358,7 @@ public partial class GpuPage : UserControl
                     });
                 }, "Danger"),
             };
-            ProfileList.Children.Add(Row(active == p.Name ? "Good" : "Accent", title, desc, right, translate: false));
+            ProfileList.Children.Add(Row(active == p.Name ? "Good" : otherGpu || retest ? "Warn" : "Accent", title, desc, right, translate: false));
         }
     }
 }

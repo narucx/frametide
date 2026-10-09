@@ -32,7 +32,12 @@ public sealed class Drs : IDisposable
     {
         Check(Fn<F0>(0x0150E828)(), "NvAPI_Initialize");
         Check(Fn<FOut>(0x0694D52E)(out _session), "DRS_CreateSession");
-        Check(Fn<FH>(0x375DBD6B)(_session), "DRS_LoadSettings");
+        try { Check(Fn<FH>(0x375DBD6B)(_session), "DRS_LoadSettings"); }
+        catch
+        {
+            Dispose();   // the caller never gets the object, so the session would leak
+            throw;
+        }
     }
 
     private static T Fn<T>(uint id) where T : Delegate
@@ -341,21 +346,33 @@ public static class NvidiaProfiles
     {
         var undo = JsonFile.Read<List<NvUndo>>(AppPaths.NvProfilesUndo);
         if (undo is not { Count: > 0 }) return;
+        var failed = new HashSet<NvUndo>();
         using (var drs = new Drs())
         {
             foreach (var u in Enumerable.Reverse(undo))
             {
-                var p = drs.FindProfile(u.Profile);
-                if (p == IntPtr.Zero) continue;
                 try
                 {
+                    var p = drs.FindProfile(u.Profile);
+                    if (p == IntPtr.Zero) continue;   // profile gone (e.g. driver reinstalled): nothing left to restore
                     if (u.Created) drs.DeleteProfile(p);
                     else if (!u.Own || u.Prev is null || u.Predefined) drs.ResetSetting(p, u.Id);
                     else drs.SetDword(p, u.Id, u.Prev.Value);
                 }
-                catch (InvalidOperationException e) { Log.Warn($"NVIDIA undo '{u.Profile}': {e.Message}"); }
+                catch (InvalidOperationException e)
+                {
+                    failed.Add(u);
+                    Log.Warn($"NVIDIA undo '{u.Profile}': {e.Message}");
+                }
             }
             drs.Save();
+        }
+        if (failed.Count > 0)
+        {
+            // Keep what could not be restored, so the next Undo tries again.
+            JsonFile.Write(AppPaths.NvProfilesUndo, undo.Where(failed.Contains).ToList());
+            Log.Warn($"NVIDIA profiles: {failed.Count} of {undo.Count} value(s) could not be restored, they stay in the undo list.");
+            return;
         }
         File.Delete(AppPaths.NvProfilesUndo);
         Log.Ok("NVIDIA profiles restored to the previous values.");
