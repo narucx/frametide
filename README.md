@@ -44,6 +44,19 @@ powershell -ExecutionPolicy Bypass -File tools/Find-MissingTranslations.ps1 -Lan
 `--preview` renders a page to a PNG without administrator rights (read-only, temporary data folder).
 The last command lists UI texts without a German translation.
 
+## Code signing policy
+
+Releases are not code-signed yet, so Windows SmartScreen warns on the first start ("More info" > "Run anyway").
+Signing is planned with free code signing provided by [SignPath.io](https://about.signpath.io), certificate by
+[SignPath Foundation](https://signpath.org) (application in progress).
+
+- Committers and reviewers: [narucx](https://github.com/narucx)
+- Approvers: [narucx](https://github.com/narucx)
+- Only binaries built by the public [release workflow](.github/workflows/release.yml) from this repository get
+  signed; every signing request is approved manually.
+- Privacy policy: see [docs/PRIVACY.md](docs/PRIVACY.md). This program will not transfer any information to other
+  networked systems unless specifically requested by the user or the person installing or operating it.
+
 ## Privacy
 
 No accounts, no telemetry. Frametide only goes online for update checks, the PresentMon download and the CS2 server
