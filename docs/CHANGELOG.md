@@ -1,9 +1,12 @@
 ﻿# Changelog
 
-## Unreleased
+## v0.1.0-beta.5
 
 ### Changed
 - Updates come from a feed on GitHub Pages; releases only contain the installer (Frametide-win.msi)
+
+### Notes
+- Not code-signed yet: Windows SmartScreen shows a warning on the first start ("More info" > "Run anyway").
 
 ## v0.1.0-beta.4
 
