@@ -44,6 +44,11 @@ powershell -ExecutionPolicy Bypass -File tools/Find-MissingTranslations.ps1 -Lan
 `--preview` renders a page to a PNG without administrator rights (read-only, temporary data folder).
 The last command lists UI texts without a German translation.
 
+## Privacy
+
+No accounts, no telemetry. Frametide only goes online for update checks, the PresentMon download and the CS2 server
+list: see [docs/PRIVACY.md](docs/PRIVACY.md).
+
 ## License
 
 GPL-3.0, see [LICENSE](LICENSE).
