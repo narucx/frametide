@@ -57,7 +57,8 @@ public sealed partial class BoostConfig
             if (Settings.GetNode(k) is { } node) obj[k] = node;
         try { cfg = obj.Deserialize<BoostConfig>(JsonFile.Options) ?? cfg; }
         catch (JsonException e) { Log.Warn($"Game Boost settings could not be read, using defaults: {e.Message}"); }
-        cfg.Games = cfg.Games.Where(g => IsValidExe(g.Exe)).ToList();
+        // One entry per exe: the launch priority is one registry value per exe name.
+        cfg.Games = cfg.Games.Where(g => IsValidExe(g.Exe)).DistinctBy(g => g.Exe, StringComparer.OrdinalIgnoreCase).ToList();
         cfg.KillList = cfg.KillList.Where(IsValidExe).ToList();
         cfg.SuspendList = cfg.SuspendList.Where(IsValidExe).ToList();
         return cfg;

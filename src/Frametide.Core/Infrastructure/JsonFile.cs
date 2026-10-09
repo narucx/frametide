@@ -17,9 +17,7 @@ public static class JsonFile
 
     public static JsonNode? ReadNode(string path)
     {
-        if (!File.Exists(path)) return null;
-        var text = File.ReadAllText(path, Encoding.UTF8);
-        if (string.IsNullOrWhiteSpace(text)) return null;
+        if (ReadText(path) is not { } text || string.IsNullOrWhiteSpace(text)) return null;
         // Files written by other tools may start with a UTF-8 BOM.
         return JsonNode.Parse(text.TrimStart('\uFEFF'), documentOptions: new JsonDocumentOptions { AllowTrailingCommas = true });
     }
@@ -34,10 +32,35 @@ public static class JsonFile
 
     public static void Write<T>(string path, T value) => WriteText(path, JsonSerializer.Serialize(value, Options));
 
+    /// <summary>
+    /// Readers share delete and write access, so a writer can replace or delete the file while another thread reads it.
+    /// A short sharing violation (e.g. a virus scanner) is retried. Null when the file does not exist.
+    /// </summary>
+    private static string? ReadText(string path)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                using var reader = new StreamReader(fs, Encoding.UTF8);
+                return reader.ReadToEnd();
+            }
+            catch (Exception e) when (e is FileNotFoundException or DirectoryNotFoundException) { return null; }
+            catch (IOException) when (attempt < 5) { Thread.Sleep(20); }
+        }
+    }
+
     private static void WriteText(string path, string text)
     {
         var tmp = path + ".tmp";
-        File.WriteAllText(tmp, text, new UTF8Encoding(false));
+        // Flushed to the disk before the replace: after a power loss the file is either the old or the new one, never empty.
+        using (var fs = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None))
+        {
+            var bytes = new UTF8Encoding(false).GetBytes(text);
+            fs.Write(bytes);
+            fs.Flush(flushToDisk: true);
+        }
         File.Move(tmp, path, overwrite: true);
     }
 }
