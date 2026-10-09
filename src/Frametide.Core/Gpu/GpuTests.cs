@@ -339,6 +339,9 @@ public static class GpuTests
                 if (!r.Thermal && (r.DeviceLost || !ctx.Stress.Running)) ctx.Recover(good?.Offset ?? 0, target);
                 break;
             }
+            // Stable up to the limit: the GPU's real limit was not found, more may be possible.
+            if (bad is null && good is not null)
+                Say(p, "Stable up to the maximum offset (+{0} MHz) without errors. Raise MAX OFFSET to look for more.", good.Offset);
             if (bad is { Thermal: false })
             {
                 var mid = (good?.Offset ?? 0) + o.Step;
@@ -391,6 +394,12 @@ public static class GpuTests
             p.Result = result;
             p.Phase = TestPhase.Done;
             Say(p, "Done: {0} MHz at {1} V instead of {2} V. Power {3} W -> {4} W.", target, replay.Voltage, stock.Voltage, stock.AvgPower, replay.AvgPower);
+            if (bad is null && final == good.Offset)
+            {
+                const string limited = "Limited by MAX OFFSET, not by the GPU: a higher MAX OFFSET may give a lower voltage.";
+                p.Status += " " + L.T(limited);
+                Log.Info("[GPU test] " + limited);
+            }
         }
         catch (Exception e) when (e is InvalidOperationException or OperationCanceledException)
         {

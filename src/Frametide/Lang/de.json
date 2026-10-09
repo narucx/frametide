@@ -641,5 +641,7 @@
   "Profile '{0}' was created on '{1}', the current GPU is '{2}'. Run the smart undervolt again on this GPU.": "Profil '{0}' wurde auf '{1}' erstellt, die aktuelle GPU ist '{2}'. Führe den Smart-Undervolt auf dieser GPU erneut aus.",
   "The current power limit could not be read, so the test was not started.": "Das aktuelle Power-Limit konnte nicht gelesen werden, deshalb wurde der Test nicht gestartet.",
   "The profile could not be saved: {0}": "Das Profil konnte nicht gespeichert werden: {0}",
-  "The test could not write to the data folder: {0}": "Der Test konnte nicht in den Datenordner schreiben: {0}"
+  "The test could not write to the data folder: {0}": "Der Test konnte nicht in den Datenordner schreiben: {0}",
+  "Stable up to the maximum offset (+{0} MHz) without errors. Raise MAX OFFSET to look for more.": "Bis zum maximalen Offset (+{0} MHz) ohne Fehler stabil. MAX. OFFSET erhöhen, um weiterzusuchen.",
+  "Limited by MAX OFFSET, not by the GPU: a higher MAX OFFSET may give a lower voltage.": "Begrenzt durch MAX. OFFSET, nicht durch die GPU: Mit höherem MAX. OFFSET ist evtl. eine niedrigere Spannung möglich."
 }

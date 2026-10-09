@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Fixed
+- Smart undervolt says when it stopped at MAX OFFSET without finding the GPU's limit (more may be possible)
 - "Installed apps" in Windows Settings shows the installed version after an update (it kept showing the first version)
 
 ## v0.1.0-beta.6
