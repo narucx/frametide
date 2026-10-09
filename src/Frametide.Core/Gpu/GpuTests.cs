@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json;
 using Frametide.Core.Hardware;
 using Frametide.Core.Infrastructure;
 
@@ -26,7 +27,14 @@ public sealed record LiveReading(int Clock, double Voltage, double Power, int Te
 
 public enum TestPhase { Stock, Probe, Replay, Done, Failed }
 
+public enum GpuTestKind { Undervolt, ProfileTest }
+
 public sealed record UndervoltOptions(int Target, int Step, int RoundSec, int MaxOffset, int TempLimit);
+
+/// <summary>Written to the data folder while a test has the GPU changed; a later start resets the GPU when it is still there.</summary>
+internal sealed record GpuTestMarker(int OriginalPowerLimitW, DateTimeOffset Started, int Pid);
+
+internal enum MarkerAction { Wait, Discard, Recover }
 
 /// <summary>State of a running GPU test; written by the test thread, read by the UI.</summary>
 public sealed class GpuTestProgress
@@ -37,6 +45,7 @@ public sealed class GpuTestProgress
     public volatile string Status = "";
     public volatile string Warning = "";
     public volatile bool Done;
+    public GpuTestKind Kind { get; init; }
     public TestPhase Phase { get; set; } = TestPhase.Stock;
     public LiveReading? Live { get; set; }
     public GpuProfile? Result { get; set; }
@@ -46,6 +55,12 @@ public sealed class GpuTestProgress
     public int? OriginalPowerLimitW { get; set; }
 
     public IReadOnlyList<StressRound> Rounds { get { lock (_gate) return [.. _rounds]; } }
+
+    /// <summary>Held by the test thread while it changes the GPU and by <see cref="GpuTests.CancelAndWait"/> while it restores.</summary>
+    internal Lock GpuGate { get; } = new();
+
+    /// <summary>Set once the GPU was restored from outside the test thread: the test thread must not change the GPU any more.</summary>
+    internal volatile bool Frozen;
 
     internal void Add(StressRound r) { lock (_gate) _rounds.Add(r); }
 
@@ -74,10 +89,12 @@ public static class GpuTests
 
     private static CancellationTokenSource _cancel = new();
 
-    public static GpuTestProgress StartUndervolt(UndervoltOptions o) => Run((p, c) => Undervolt(p, o, c));
+    internal static string MarkerPath => Path.Combine(AppPaths.DataDir, "gpu-test.json");
+
+    public static GpuTestProgress StartUndervolt(UndervoltOptions o) => Run(GpuTestKind.Undervolt, (p, c) => Undervolt(p, o, c));
 
     public static GpuTestProgress StartProfileTest(string profile, int seconds, int tempLimit) =>
-        Run((p, c) => ProfileTest(p, profile, seconds, tempLimit, c));
+        Run(GpuTestKind.ProfileTest, (p, c) => ProfileTest(p, profile, seconds, tempLimit, c));
 
     public static void Cancel()
     {
@@ -86,20 +103,31 @@ public static class GpuTests
         if (Current is { } p) p.Status = L.T("Cancelling ...");
     }
 
-    /// <summary>Cancels a running test and waits for the GPU to be reset (app exit).</summary>
+    /// <summary>
+    /// Cancels a running test and waits for the GPU to be reset (app exit). When the test does not end in time, the GPU
+    /// is reset from here and the test thread can no longer change it. TimeSpan.Zero = reset right away (crash handler).
+    /// </summary>
     public static void CancelAndWait(TimeSpan timeout)
     {
         if (!Running) return;
         Cancel();
         var sw = Stopwatch.StartNew();
         while (Running && sw.Elapsed < timeout) Thread.Sleep(100);
-        if (Running) RestoreDefaults(Current);
+        if (!Running || Current is not { } p) return;
+        // The test thread may be inside an NVML call that hangs (driver reset): do not wait for it forever.
+        var locked = p.GpuGate.TryEnter(TimeSpan.FromSeconds(5));
+        try
+        {
+            p.Frozen = true;
+            RestoreDefaults(p);
+        }
+        finally { if (locked) p.GpuGate.Exit(); }
     }
 
-    private static GpuTestProgress Run(Action<GpuTestProgress, CancellationToken> test)
+    private static GpuTestProgress Run(GpuTestKind kind, Action<GpuTestProgress, CancellationToken> test)
     {
         if (Interlocked.Exchange(ref _running, 1) == 1) throw new InvalidOperationException(L.T("A GPU test is already running."));
-        var progress = new GpuTestProgress { Status = L.T("Starting ...") };
+        var progress = new GpuTestProgress { Kind = kind, Status = L.T("Starting ...") };
         Current = progress;
         _cancel.Dispose();
         _cancel = new CancellationTokenSource();
@@ -132,6 +160,22 @@ public static class GpuTests
         public CancellationToken Cancel { get; } = cancel;
         public GpuStress Stress { get; } = new();
 
+        /// <summary>
+        /// Every GPU change of the test thread goes through here: after <see cref="CancelAndWait"/> restored the GPU
+        /// (frozen), a late test thread must not set an offset again.
+        /// </summary>
+        public void Gpu(Action change)
+        {
+            lock (Progress.GpuGate)
+            {
+                if (Progress.Frozen) throw new OperationCanceledException();
+                change();
+            }
+        }
+
+        /// <summary>Waits, returns early when cancelled. False = cancelled.</summary>
+        public bool Wait(int ms) => !Cancel.WaitHandle.WaitOne(ms);
+
         public void StartStress()
         {
             if (Stress.Start(TimeSpan.FromMinutes(1)) is { } err) throw new InvalidOperationException(L.T("The GPU stress test could not start: {0}", err));
@@ -140,12 +184,16 @@ public static class GpuTests
         /// <summary>After a driver reset: back to the last good offset, then restart the load (the stock reference is kept).</summary>
         public void Recover(int offset, int lockedClock)
         {
+            Cancel.ThrowIfCancellationRequested();
             Stress.Stop();
-            Thread.Sleep(3000);
+            if (!Wait(3000)) Cancel.ThrowIfCancellationRequested();
             Nvidia.Reconnect();
-            Nvidia.SetClockOffset(offset);
-            if (lockedClock > 0) Nvidia.LockClocks(GpuTuning.IdleMinClock, lockedClock);
-            Thread.Sleep(3000);
+            Gpu(() =>
+            {
+                if (lockedClock > 0) Nvidia.LockClocks(GpuTuning.IdleMinClock, lockedClock);
+                Nvidia.SetClockOffset(offset);
+            });
+            if (!Wait(3000)) Cancel.ThrowIfCancellationRequested();
             StartStress();
         }
     }
@@ -159,11 +207,12 @@ public static class GpuTests
     private static StressRound Round(Context ctx, string label, int offset, int seconds, int expectClock = 0)
     {
         var round = new StressRound { Label = label, Offset = offset };
-        try { Nvidia.SetClockOffset(offset); }
+        if (ctx.Cancel.IsCancellationRequested) { round.Reason = L.T("Cancelled"); return round; }
+        try { ctx.Gpu(() => Nvidia.SetClockOffset(offset)); }
         catch (InvalidOperationException e) { round.Reason = e.Message; return round; }
         var start = DateTime.Now;
         ctx.Stress.ResetErrors();
-        Thread.Sleep(3000);   // settle after changing the offset, not measured
+        if (!ctx.Wait(3000)) { round.Reason = L.T("Cancelled"); return round; }   // settle after changing the offset, not measured
         ctx.Stress.ResetErrors();
         var measure = Stopwatch.StartNew();
         var clocks = new List<double>();
@@ -196,7 +245,7 @@ public static class GpuTests
                 if (s.VoltageV > 0) volts.Add(s.VoltageV);
             }
             ctx.Progress.Live = new LiveReading(s.ClockMHz, s.VoltageV, s.PowerW, s.TempC, round.Errors, label, offset, (int)measure.Elapsed.TotalSeconds, seconds);
-            Thread.Sleep(1000);
+            ctx.Wait(1000);
         }
         if (DriverEvents.CrashSince(start) is { } crash) { round.Reason = L.T("Driver crash: {0}", crash); return round; }
         if (clocks.Count < Math.Max(3, seconds / 3)) { round.Reason = L.T("Too few samples under load"); return round; }
@@ -221,6 +270,22 @@ public static class GpuTests
         return s[(s.Count - 1) / 2];
     }
 
+    /// <summary>
+    /// Remembers the power limit to restore and writes the crash marker. Runs before the test changes anything: without a
+    /// known original power limit the test does not start (it would stay at the maximum).
+    /// </summary>
+    private static void Begin(GpuTestProgress p, GpuInfo info)
+    {
+        var original = Nvidia.GetPowerLimitW() ?? (info.PowerDefaultW > 0 ? info.PowerDefaultW : (int?)null)
+            ?? throw new InvalidOperationException(L.T("The current power limit could not be read, so the test was not started."));
+        p.OriginalPowerLimitW = original;
+        try { JsonFile.Write(MarkerPath, new GpuTestMarker(original, DateTimeOffset.Now, Environment.ProcessId)); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            throw new InvalidOperationException(L.T("The test could not write to the data folder: {0}", e.Message));
+        }
+    }
+
     private static void Undervolt(GpuTestProgress p, UndervoltOptions o, CancellationToken cancel)
     {
         var ctx = new Context(p, o.TempLimit, cancel);
@@ -237,9 +302,13 @@ public static class GpuTests
 
             // STOCK
             p.Phase = TestPhase.Stock;
-            p.OriginalPowerLimitW = Nvidia.GetSnapshot()?.PowerLimitW;
-            GpuTuning.Reset(keepPowerLimit: true);
-            Nvidia.SetPowerLimit(info.PowerMaxW);
+            Begin(p, info);
+            cancel.ThrowIfCancellationRequested();
+            ctx.Gpu(() =>
+            {
+                GpuTuning.ResetCore(keepPowerLimit: true);
+                Nvidia.SetPowerLimit(info.PowerMaxW);
+            });
             Say(p, "Stock: power limit temporarily {0} W, starting the built-in stress test ...", info.PowerMaxW);
             ctx.StartStress();
             var stock = Round(ctx, L.T("Stock"), 0, o.RoundSec);
@@ -249,7 +318,7 @@ public static class GpuTests
 
             var target = o.Target > 0 ? o.Target : stock.MedClock / 15 * 15;
             Say(p, "Stock: {0} MHz at {1} V, {2} W. Locking the clock to {3} MHz.", stock.MedClock, stock.Voltage, stock.AvgPower, target);
-            Nvidia.LockClocks(GpuTuning.IdleMinClock, target);
+            ctx.Gpu(() => Nvidia.LockClocks(GpuTuning.IdleMinClock, target));
 
             // PROBE: coarse steps until a failure, then one fine step in between.
             p.Phase = TestPhase.Probe;
@@ -303,7 +372,7 @@ public static class GpuTests
 
             var saved = Math.Round(stock.AvgPower - replay.AvgPower);
             var voltage = replay.Voltage > 0 ? $" @ {replay.Voltage:N3} V" : "";
-            p.Result = new GpuProfile
+            var result = new GpuProfile
             {
                 Name = $"UV {target} MHz{voltage} ({DateTime.Now:yyyy-MM-dd HH:mm})",
                 MaxClock = target, OffsetMHz = final, PowerLimitW = 0, Gpu = info.Name, Driver = info.Driver,
@@ -313,6 +382,13 @@ public static class GpuTests
                 VoltageDropMv = stock.Voltage > 0 && replay.Voltage > 0 ? Math.Round((stock.Voltage - replay.Voltage) * 1000) : null,
                 PowerSavedPct = stock.AvgPower > 0 ? Math.Round(100 * saved / stock.AvgPower, 1) : 0, MaxTemp = p.MaxTemp,
             };
+            // Saved here, not by the page: the window may be closed to the tray while the test runs.
+            try { GpuProfiles.Save(result); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                throw new InvalidOperationException(L.T("The profile could not be saved: {0}", e.Message));
+            }
+            p.Result = result;
             p.Phase = TestPhase.Done;
             Say(p, "Done: {0} MHz at {1} V instead of {2} V. Power {3} W -> {4} W.", target, replay.Voltage, stock.Voltage, stock.AvgPower, replay.AvgPower);
         }
@@ -336,41 +412,133 @@ public static class GpuTests
         try
         {
             var profile = GpuProfiles.Find(name) ?? throw new InvalidOperationException(L.T("GPU profile '{0}' not found.", name));
-            GpuTuning.Reset(keepPowerLimit: true);
+            var info = Nvidia.GetInfo() ?? throw new InvalidOperationException(L.T("No NVIDIA GPU (NVML) found."));
+            GpuTuning.EnsureSameGpu(profile, info);
+            Begin(p, info);
+            cancel.ThrowIfCancellationRequested();
+            ctx.Gpu(() => GpuTuning.ResetCore(keepPowerLimit: true));
             Say(p, "Creating the reference at stock settings ...");
             ctx.StartStress();
-            Thread.Sleep(2000);
-            GpuTuning.Apply(profile.MaxClock, profile.OffsetMHz, profile.PowerLimitW);
+            if (!ctx.Wait(2000)) throw new OperationCanceledException();
+            ctx.Gpu(() => GpuTuning.ApplyCore(profile.MaxClock, profile.OffsetMHz, profile.PowerLimitW));
             Say(p, "Testing profile '{0}' for {1} s ...", profile.Name, seconds);
             var r = Round(ctx, L.T("Test"), profile.OffsetMHz, seconds, profile.MaxClock);
             p.TestResult = r;
-            passed = r.Stable;
+            passed = r.Stable && !cancel.IsCancellationRequested;
             if (passed) Say(p, "Profile '{0}' passed: {1} MHz at {2} V, {3} W, max {4} °C, no errors. The profile stays active.", profile.Name, r.MedClock, r.Voltage, r.AvgPower, r.MaxTemp);
             else Say(p, "Profile '{0}' FAILED: {1} The GPU was reset to default.", profile.Name, r.Reason);
         }
-        catch (InvalidOperationException e) { Say(p, "Aborted: {0}", e.Message); }
+        catch (Exception e) when (e is InvalidOperationException or OperationCanceledException)
+        {
+            Say(p, "Aborted: {0}", e is OperationCanceledException ? L.T("Cancelled.") : e.Message);
+        }
         finally
         {
             ctx.Stress.Dispose();
             if (passed)
             {
-                try { GpuTuning.ApplyProfile(name); }
-                catch (InvalidOperationException e) { Log.Warn(e.Message); RestoreDefaults(p); }
+                try
+                {
+                    ctx.Gpu(() => GpuTuning.ApplyProfileCore(name, unattended: false));
+                    DeleteMarker();
+                }
+                catch (Exception e) when (e is InvalidOperationException or OperationCanceledException) { Log.Warn(e.Message); RestoreDefaults(p); }
             }
             else RestoreDefaults(p);
         }
     }
 
-    /// <summary>Back to default clocks and the power limit from before the test.</summary>
+    /// <summary>
+    /// Back to default clocks and the power limit from before the test. Safe to call from any thread, also while the
+    /// test thread is still running. The crash marker is removed once everything was restored.
+    /// </summary>
     public static void RestoreDefaults(GpuTestProgress? p)
     {
         try
         {
-            GpuTuning.Reset(keepPowerLimit: true);
+            var ok = GpuTuning.ResetCore(keepPowerLimit: true);
             GpuTuning.SetActive("");
-            if (p?.OriginalPowerLimitW is { } w) Nvidia.SetPowerLimit(w);
+            if ((p?.OriginalPowerLimitW ?? ReadMarker()?.OriginalPowerLimitW) is { } w and > 0)
+            {
+                try { Nvidia.SetPowerLimit(w); }
+                catch (InvalidOperationException e) { Log.Warn($"Restoring the power limit: {e.Message}"); ok = false; }
+            }
+            if (ok) DeleteMarker();
         }
-        catch (InvalidOperationException e) { Log.Warn($"Resetting the GPU: {e.Message}"); }
+        catch (Exception e) when (e is InvalidOperationException or IOException or UnauthorizedAccessException) { Log.Warn($"Resetting the GPU: {e.Message}"); }
+    }
+
+    /// <summary>
+    /// Call once at start (app and sign-in task). When a test of this boot did not finish (crash, killed process), the
+    /// GPU still has its offset, clock lock and maximum power limit: reset them and restore the power limit from before
+    /// the test. Returns true when the GPU was reset. Never throws.
+    /// </summary>
+    public static bool RecoverAfterCrash()
+    {
+        try
+        {
+            if (Running) return false;
+            GpuTestMarker? marker;
+            try { marker = JsonFile.Read<GpuTestMarker>(MarkerPath); }
+            catch (JsonException e) { Log.Warn($"GPU test marker unreadable, removed: {e.Message}"); DeleteMarker(); return false; }
+            if (marker is null) return false;
+            switch (Evaluate(marker, GpuTuning.LastBoot, OwnerAlive(marker)))
+            {
+                case MarkerAction.Wait:
+                    return false;
+                case MarkerAction.Discard:
+                    DeleteMarker();   // from an earlier boot: the GPU runs at defaults again
+                    return false;
+            }
+            Log.Warn($"A GPU test started at {marker.Started:yyyy-MM-dd HH:mm:ss} did not finish. Resetting the GPU and restoring the power limit ({marker.OriginalPowerLimitW} W).");
+            var ok = GpuTuning.ResetCore(keepPowerLimit: true);
+            GpuTuning.SetActive("");
+            if (marker.OriginalPowerLimitW > 0)
+            {
+                try { Nvidia.SetPowerLimit(marker.OriginalPowerLimitW); }
+                catch (InvalidOperationException e) { Log.Warn($"Restoring the power limit: {e.Message}"); ok = false; }
+            }
+            if (ok) DeleteMarker();
+            return true;
+        }
+        catch (Exception e) when (e is InvalidOperationException or IOException or UnauthorizedAccessException)
+        {
+            Log.Warn($"GPU recovery after an unfinished test: {e.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>What to do with a marker found at start: the test still runs in another process, it is stale, or the GPU needs a reset.</summary>
+    internal static MarkerAction Evaluate(GpuTestMarker marker, DateTimeOffset lastBoot, bool ownerAlive)
+    {
+        if (ownerAlive) return MarkerAction.Wait;
+        return marker.Started < lastBoot ? MarkerAction.Discard : MarkerAction.Recover;
+    }
+
+    /// <summary>The Frametide process that wrote the marker still runs (and may still be testing).</summary>
+    private static bool OwnerAlive(GpuTestMarker marker)
+    {
+        if (marker.Pid == Environment.ProcessId) return false;   // this process: Running is false, so the test is over
+        try
+        {
+            using var proc = Process.GetProcessById(marker.Pid);
+            using var self = Process.GetCurrentProcess();
+            // PIDs are reused: same program and started before the marker was written.
+            return proc.ProcessName == self.ProcessName && proc.StartTime <= marker.Started.LocalDateTime;
+        }
+        catch (Exception e) when (e is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception) { return false; }
+    }
+
+    private static GpuTestMarker? ReadMarker()
+    {
+        try { return JsonFile.Read<GpuTestMarker>(MarkerPath); }
+        catch (Exception e) when (e is JsonException or IOException or UnauthorizedAccessException) { return null; }
+    }
+
+    private static void DeleteMarker()
+    {
+        try { File.Delete(MarkerPath); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { Log.Warn($"GPU test marker: {e.Message}"); }
     }
 
     private static string? RunningTuningTool()

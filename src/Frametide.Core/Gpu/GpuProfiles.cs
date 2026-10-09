@@ -59,6 +59,14 @@ public static class GpuProfiles
         Changed?.Invoke();
     }
 
-    /// <summary>Profile names end up in a scheduled task's command line: no quotes or control characters.</summary>
-    public static string CleanName(string name) => new string(name.Where(c => c != '"' && !char.IsControl(c)).ToArray()).Trim();
+    /// <summary>
+    /// Profile names end up quoted in a scheduled task's command line: no quotes or control characters, and no
+    /// backslash at the end (it would escape the closing quote).
+    /// </summary>
+    public static string CleanName(string name)
+    {
+        var clean = new string(name.Where(c => c != '"' && !char.IsControl(c)).ToArray()).Trim();
+        while (clean.EndsWith('\\')) clean = clean[..^1].TrimEnd();
+        return clean;
+    }
 }

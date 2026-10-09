@@ -47,7 +47,9 @@ public static class Program
         if (args.Length >= 2 && args[0] == Core.Gpu.GpuTuning.ApplyProfileArgument)
         {
             Core.Infrastructure.AppPaths.EnsureDataDir();
-            try { Core.Gpu.GpuTuning.ApplyProfile(args[1]); }
+            Core.Gpu.GpuTests.RecoverAfterCrash();
+            // Unattended: a profile tested with another driver is skipped (logged), one from another GPU is refused.
+            try { Core.Gpu.GpuTuning.ApplyProfile(args[1], unattended: true); }
             catch (InvalidOperationException e) { Core.Infrastructure.Log.Error($"GPU profile at sign-in: {e.Message}"); }
             return;
         }
