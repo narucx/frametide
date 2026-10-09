@@ -14,7 +14,7 @@ public static class GpuTuning
 
     public const string ManualMarker = "*manual*";
     public const string ApplyProfileArgument = "--apply-gpu-profile";
-    private const string TaskName = @"\Frametide\GPU profile";
+    public const string TaskName = @"\Frametide\GPU profile";
 
     public static event Action? Changed;
 
@@ -85,5 +85,12 @@ public static class GpuTuning
         Settings.Set("AutoGpuProfile", name);
         Log.Ok(name.Length == 0 ? "GPU profile at sign-in removed." : $"GPU profile '{name}' is now applied at sign-in.");
         Changed?.Invoke();
+    }
+
+    /// <summary>Registers the sign-in task again when a profile is chosen but the task is missing (see Autostart.Restore).</summary>
+    public static void RestoreSignInTask(string exePath)
+    {
+        if (SignInProfile is { Length: > 0 } name && LogonTask.Command(TaskName) is null && AdminOnly.IsProtectedProgram(exePath))
+            SetSignInProfile(name, exePath);
     }
 }

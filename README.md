@@ -9,14 +9,26 @@ Every change is backed up and can be reverted exactly; nothing is hidden, no tel
 
 ## Install
 
-Download `Frametide-win-Setup.exe` from the [latest release](https://github.com/narucx/frametide/releases/latest)
-and run it. Frametide asks for administrator rights when it starts (tweaks, services, GPU tuning).
+Download `Frametide-win.msi` from the [latest release](https://github.com/narucx/frametide/releases/latest)
+and run it. It installs Frametide for all users into `C:\Program Files\Frametide`. Frametide asks for administrator
+rights when it starts (tweaks, services, GPU tuning).
 Requires Windows 10 version 2004 or newer, or Windows 11 (64-bit). GPU tuning needs an NVIDIA graphics card.
+
+Frametide runs with administrator rights and can start itself at sign-in without a UAC prompt. That is only safe
+when standard users cannot change its files, so it is installed for all users, and sign-in tasks are only created
+for a copy in such a folder.
 
 ## Update
 
-Frametide checks GitHub Releases for updates and installs them on request. Releases are cumulative: always
-install the newest one.
+Frametide checks GitHub Releases for updates and installs them on request (with a UAC prompt). Releases are
+cumulative: always install the newest one.
+
+## Uninstall
+
+Settings > Apps > Frametide. Uninstalling stops a running Game Boost, removes the launch priorities of Auto Game
+Boost and the sign-in tasks (it asks for administrator rights once more for that). Tweaks are not reverted: revert
+them in Frametide first if you want the Windows defaults back. Profiles, benchmarks and the backup of the original
+values stay in `C:\ProgramData\Frametide`; delete that folder to remove everything.
 
 ## Development
 

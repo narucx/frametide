@@ -1,5 +1,18 @@
 ﻿# Changelog
 
+## Unreleased
+
+### Changed
+- Installed for all users into C:\Program Files\Frametide (Frametide-win.msi); updates ask for administrator rights
+- "Start with Windows" and "GPU profile at sign-in" only start a copy that standard users cannot change; existing
+  sign-in tasks are moved to the new installation
+
+### Added
+- Uninstalling stops a running Game Boost and removes the Auto Game Boost launch priorities and the sign-in tasks
+
+### Fixed
+- A data folder in ProgramData that someone else created before Frametide is no longer trusted
+
 ## v0.1.0-beta.3
 
 ### Added

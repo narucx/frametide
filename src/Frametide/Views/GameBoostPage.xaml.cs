@@ -35,7 +35,10 @@ public partial class GameBoostPage : UserControl
         KillBox.Text = string.Join(Environment.NewLine, _cfg.KillList);
         SuspendBox.Text = string.Join(Environment.NewLine, _cfg.SuspendList);
         TrayCheck.IsChecked = App.CloseToTray;
-        AutostartCheck.IsChecked = App.StartWithWindows;
+        AutostartCheck.IsChecked = Autostart.Wanted && App.ProtectedInstall;
+        // Per-user installs (and dev builds) must not be started elevated at sign-in: see LogonTask.
+        AutostartCheck.IsEnabled = App.ProtectedInstall;
+        AutostartHint.Visibility = App.ProtectedInstall ? Visibility.Collapsed : Visibility.Visible;
         ShowGames();
         UpdateState();
 
@@ -55,7 +58,7 @@ public partial class GameBoostPage : UserControl
         AutostartCheck.Click += async (_, _) =>
         {
             var on = AutostartCheck.IsChecked == true;
-            var ok = await _main.RunAsync("Start with Windows", () => { App.SetStartWithWindows(on); return true; });
+            var ok = await _main.RunAsync("Start with Windows", () => { Autostart.Set(on, Environment.ProcessPath!); return true; });
             if (!ok) AutostartCheck.IsChecked = !on;
         };
         PlanCombo.SelectionChanged += async (_, _) =>

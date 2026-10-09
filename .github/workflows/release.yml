@@ -38,17 +38,31 @@ jobs:
 
       - run: dotnet publish src/Frametide/Frametide.csproj -c Release -r win-x64 --self-contained -o publish
 
-      - run: dotnet tool install -g vpk
+      # Same version as the Velopack package the app uses.
+      - run: dotnet tool install -g vpk --version 1.2.161
 
       # Previous release for delta updates; there is none before the first release.
-      - run: vpk download github --repoUrl https://github.com/${{ github.repository }} --token ${{ secrets.GITHUB_TOKEN }}
+      - run: vpk download github --repoUrl https://github.com/${{ github.repository }} --token ${{ secrets.GITHUB_TOKEN }} ${{ steps.ver.outputs.pre }}
         continue-on-error: true
 
+      # Installed for all users (C:\Program Files\Frametide): Frametide runs elevated and starts itself elevated at
+      # sign-in, so its files must only be changeable by administrators. Updates ask for UAC (Velopack elevates).
       - run: >
           vpk pack --packId Frametide --packVersion ${{ steps.ver.outputs.version }} --packDir publish
           --mainExe Frametide.exe --packTitle Frametide --icon src/Frametide/Assets/frametide.ico --releaseNotes release-notes.md
+          --msi --instLocation PerMachine --noPortable
 
+      # Uploaded as a draft first: Velopack always builds Setup.exe as well, which installs per user (user-writable
+      # folder). Only the MSI is offered for download.
       - run: >
-          vpk upload github --repoUrl https://github.com/${{ github.repository }} --publish ${{ steps.ver.outputs.pre }}
+          vpk upload github --repoUrl https://github.com/${{ github.repository }} ${{ steps.ver.outputs.pre }}
           --releaseName "Frametide v${{ steps.ver.outputs.version }}" --tag ${{ github.ref_name }}
           --token ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish with the MSI only
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete-asset ${{ github.ref_name }} Frametide-win-Setup.exe --yes
+          gh release edit ${{ github.ref_name }} --draft=false

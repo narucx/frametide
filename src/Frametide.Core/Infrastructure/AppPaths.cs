@@ -29,10 +29,25 @@ public static class AppPaths
         Directory.CreateDirectory(dir);
     }
 
-    /// <summary>Creates the data folder with restricted permissions if it does not exist yet.</summary>
+    /// <summary>
+    /// Creates the data folder with restricted permissions if it does not exist yet. Any user can create folders in
+    /// ProgramData: a folder that someone else created before Frametide is moved aside, its content is not trusted.
+    /// </summary>
     public static void EnsureDataDir()
     {
-        if (Directory.Exists(DataDir)) return;
+        if (Directory.Exists(DataDir) && Windows.AdminOnly.Problem(DataDir, recursive: false) is { } problem)
+        {
+            var aside = $"{DataDir}.untrusted-{DateTime.Now:yyyyMMdd-HHmmss}";
+            Directory.Move(DataDir, aside);
+            Create();
+            Log.Warn($"The data folder could be changed by standard users ({problem}). Moved it to {aside} and started a new one.");
+            return;
+        }
+        if (!Directory.Exists(DataDir)) Create();
+    }
+
+    private static void Create()
+    {
         var security = new DirectorySecurity();
         security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
         const InheritanceFlags inherit = InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit;

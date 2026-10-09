@@ -53,7 +53,7 @@ public partial class App : Application
         _loop = new BackgroundLoop(_tray);
         _loop.Start();
         Instance?.Listen(() => Dispatcher.BeginInvoke(ShowMain));
-        _ = Task.Run(RefreshAutostart);
+        _ = Task.Run(SecureSignInTasks);
         if (Program.StartInTray) _trayTipShown = true;
         else ShowMain();
     }
@@ -125,22 +125,19 @@ public partial class App : Application
         Shutdown();
     }
 
-    public static bool StartWithWindows => Settings.GetBool("StartWithWindows", false);
+    /// <summary>Installed for all users: only administrators can change the program folder (needed for sign-in tasks).</summary>
+    public static bool ProtectedInstall => _protectedInstall.Value;
+    private static readonly Lazy<bool> _protectedInstall = new(() => AdminOnly.IsProtectedProgram(Environment.ProcessPath!));
 
-    public static void SetStartWithWindows(bool on)
-    {
-        if (on) Autostart.Enable(Environment.ProcessPath!); else Autostart.Disable();
-        Settings.Set("StartWithWindows", on);
-    }
-
-    /// <summary>After an update or a move the task may point to an old path: register it again.</summary>
-    private static void RefreshAutostart()
+    /// <summary>After an update or a move the tasks may point to an old path; tasks for an unsafe folder are removed.</summary>
+    private static void SecureSignInTasks()
     {
         try
         {
-            if (StartWithWindows && !string.Equals(Autostart.RegisteredCommand(), Environment.ProcessPath, StringComparison.OrdinalIgnoreCase))
-                Autostart.Enable(Environment.ProcessPath!);
+            LogonTask.Secure(Environment.ProcessPath!);
+            Autostart.Restore(Environment.ProcessPath!);
+            GpuTuning.RestoreSignInTask(Environment.ProcessPath!);
         }
-        catch (Exception e) { Log.Warn($"Start with Windows: {e.Message}"); }
+        catch (Exception e) { Log.Warn($"Sign-in tasks: {e.Message}"); }
     }
 }

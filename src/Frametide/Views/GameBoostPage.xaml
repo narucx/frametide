@@ -20,6 +20,8 @@
         <CheckBox x:Name="AutoCheck" Content="Auto Game Boost: start when a game from the list starts, stop 20 s after it closes" Margin="0,4"/>
         <CheckBox x:Name="TrayCheck" Content="Keep running in the notification area when the window is closed" Margin="0,4"/>
         <CheckBox x:Name="AutostartCheck" Content="Start Frametide with Windows (in the notification area, no window)" Margin="0,4"/>
+        <TextBlock x:Name="AutostartHint" Foreground="{StaticResource Warn}" FontSize="12" Margin="24,0,0,4" TextWrapping="Wrap" Visibility="Collapsed"
+                   Text="Needs Frametide installed for all users (Frametide-win.msi from the releases page): this copy is in a folder that standard users can change, so Windows must not start it with administrator rights."/>
         <TextBlock Foreground="{StaticResource Muted}" FontSize="12" Margin="0,8,0,0"
                    Text="Anti-cheat friendly: in auto mode Frametide never opens or touches the game process. It only reads the process list (like Task Manager). The game priority is set through a Windows launch setting that Windows applies itself. Power plan and suspending other apps do not interact with the game."/>
       </StackPanel>

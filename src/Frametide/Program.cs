@@ -17,7 +17,7 @@ public static class Program
     {
         // Must run first: handles Velopack's install/update/uninstall hooks and exits in those cases. The hooks run
         // without elevation, which is why the manifest does not demand administrator rights.
-        VelopackApp.Build().Run();
+        VelopackApp.Build().OnBeforeUninstallFastCallback(_ => BeforeUninstall()).Run();
 
         if (args.Length >= 2 && args[0] == "--preview")
             Preview = (args[1], args.Length >= 3 ? args[2] : "Overview", args.Length >= 4 ? double.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture) : 0);
@@ -26,6 +26,12 @@ public static class Program
         if (Preview is null && !IsElevated())
         {
             RestartElevated(args);
+            return;
+        }
+
+        if (args is [UninstallArgument])
+        {
+            Core.Uninstall.Cleanup();
             return;
         }
 
@@ -51,6 +57,25 @@ public static class Program
         var app = new App { Instance = instance };
         app.InitializeComponent();
         app.Run();
+    }
+
+    private const string UninstallArgument = "--uninstall-cleanup";
+
+    /// <summary>
+    /// Velopack runs this unelevated (also from the MSI) right before the files are removed. The cleanup needs
+    /// administrator rights, so it runs in an elevated copy (UAC prompt); the hook may take up to a minute.
+    /// </summary>
+    private static void BeforeUninstall()
+    {
+        if (IsElevated()) { Core.Uninstall.Cleanup(); return; }
+        var psi = new ProcessStartInfo(Environment.ProcessPath!, UninstallArgument) { UseShellExecute = true, Verb = "runas" };
+        try
+        {
+            using var cleanup = Process.Start(psi);
+            cleanup?.WaitForExit(TimeSpan.FromSeconds(45));
+        }
+        // Declined: the sign-in tasks stay, but they point into the removed program folder and start nothing.
+        catch (System.ComponentModel.Win32Exception) { }
     }
 
     private static bool IsElevated()
