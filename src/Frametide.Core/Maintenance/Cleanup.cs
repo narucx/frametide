@@ -4,7 +4,9 @@ using Frametide.Core.Windows;
 
 namespace Frametide.Core.Maintenance;
 
-public sealed record CleanupCategory(string Id, string Name, IReadOnlyList<string> Paths, string? StopService = null, bool RecycleBin = false);
+/// <param name="MinAgeDays">Only files not changed for this long: temp folders of installers that are running right now stay.</param>
+public sealed record CleanupCategory(string Id, string Name, IReadOnlyList<string> Paths, IReadOnlyList<string>? StopServices = null,
+    bool RecycleBin = false, int MinAgeDays = 0);
 
 public sealed record CleanupItem(CleanupCategory Category, long Bytes);
 
@@ -17,26 +19,56 @@ public static partial class Cleanup
         var local = Env(Environment.SpecialFolder.LocalApplicationData);
         var windows = Env(Environment.SpecialFolder.Windows);
         var programData = Env(Environment.SpecialFolder.CommonApplicationData);
-        var systemDrive = Path.GetPathRoot(windows)!;
+        var systemDrive = windows.Length > 0 ? Path.GetPathRoot(windows) ?? "" : "";
+        // Path.GetTempPath falls back to the user profile when TMP and TEMP are empty: only a real "Temp" folder counts.
+        var userTemp = Path.TrimEndingDirectorySeparator(Path.GetTempPath());
         return
         [
-            new("usertemp", "Temporary files (user)", [Path.GetTempPath()]),
-            new("wintemp", "Temporary files (Windows)", [Path.Combine(windows, "Temp")]),
-            new("wudl", "Windows Update downloads", [Path.Combine(windows, @"SoftwareDistribution\Download")], StopService: "wuauserv"),
-            new("dumps", "Crash dumps", [Path.Combine(windows, "Minidump"), Path.Combine(local, "CrashDumps"), Path.Combine(windows, "LiveKernelReports")]),
-            new("wer", "Error reports (WER)", [Path.Combine(programData, @"Microsoft\Windows\WER\ReportArchive"), Path.Combine(programData, @"Microsoft\Windows\WER\ReportQueue"), Path.Combine(local, @"Microsoft\Windows\WER")]),
-            new("nvinstall", "Extracted NVIDIA installers", [Path.Combine(systemDrive, "NVIDIA"), Path.Combine(programData, @"NVIDIA Corporation\Downloader")]),
-            new("shader", "Shader cache (DirectX/NVIDIA) - causes brief stutter", [Path.Combine(local, "D3DSCache"), Path.Combine(local, @"NVIDIA\DXCache"), Path.Combine(local, @"NVIDIA\GLCache")]),
+            new("usertemp", "Temporary files (user)", [Path.GetFileName(userTemp).Equals("Temp", StringComparison.OrdinalIgnoreCase) ? userTemp : ""], MinAgeDays: 1),
+            new("wintemp", "Temporary files (Windows)", [Under(windows, "Temp")], MinAgeDays: 1),
+            new("wudl", "Windows Update downloads", [Under(windows, @"SoftwareDistribution\Download")], StopServices: ["wuauserv", "bits"]),
+            new("dumps", "Crash dumps", [Under(windows, "Minidump"), Under(local, "CrashDumps"), Under(windows, "LiveKernelReports")]),
+            new("wer", "Error reports (WER)", [Under(programData, @"Microsoft\Windows\WER\ReportArchive"), Under(programData, @"Microsoft\Windows\WER\ReportQueue"), Under(local, @"Microsoft\Windows\WER")]),
+            new("nvinstall", "Extracted NVIDIA installers", [Under(systemDrive, "NVIDIA"), Under(programData, @"NVIDIA Corporation\Downloader")], MinAgeDays: 1),
+            new("shader", "Shader cache (DirectX/NVIDIA) - causes brief stutter", [Under(local, "D3DSCache"), Under(local, @"NVIDIA\DXCache"), Under(local, @"NVIDIA\GLCache")]),
             new("recycle", "Recycle Bin", [], RecycleBin: true),
         ];
     }
 
+    /// <summary>A sub folder of a known folder; "" (skipped) when the known folder is unavailable.</summary>
+    private static string Under(string root, string sub) => Path.IsPathFullyQualified(root) ? Path.Combine(root, sub) : "";
+
+    /// <summary>Last line of defence: never clean a drive root, a known top folder or anything relative.</summary>
+    internal static bool IsSafeRoot(string dir)
+    {
+        if (dir.Length == 0 || !Path.IsPathFullyQualified(dir)) return false;
+        var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(dir));
+        if (Path.GetPathRoot(full) is { } root && full.Equals(Path.TrimEndingDirectorySeparator(root), StringComparison.OrdinalIgnoreCase)) return false;
+        Environment.SpecialFolder[] top =
+        [
+            Environment.SpecialFolder.Windows, Environment.SpecialFolder.UserProfile, Environment.SpecialFolder.LocalApplicationData,
+            Environment.SpecialFolder.ApplicationData, Environment.SpecialFolder.CommonApplicationData, Environment.SpecialFolder.ProgramFiles,
+            Environment.SpecialFolder.ProgramFilesX86, Environment.SpecialFolder.System, Environment.SpecialFolder.MyDocuments,
+            Environment.SpecialFolder.DesktopDirectory,
+        ];
+        return !top.Select(Environment.GetFolderPath).Where(t => t.Length > 0)
+            .Any(t => full.Equals(Path.TrimEndingDirectorySeparator(t), StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static IEnumerable<string> Roots(CleanupCategory c) => c.Paths.Where(p => IsSafeRoot(p) && Directory.Exists(p));
+
     private static EnumerationOptions Options => new() { RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = FileAttributes.ReparsePoint };
 
-    public static IReadOnlyList<CleanupItem> Scan() =>
-        Categories().Select(c => new CleanupItem(c, c.RecycleBin ? RecycleBinSize() : c.Paths.Where(Directory.Exists).Sum(FolderSize))).ToList();
+    private static IEnumerable<FileInfo> Files(CleanupCategory c, string dir)
+    {
+        var before = DateTime.UtcNow.AddDays(-c.MinAgeDays);
+        return new DirectoryInfo(dir).EnumerateFiles("*", Options).Where(f => c.MinAgeDays == 0 || f.LastWriteTimeUtc < before);
+    }
 
-    private static long FolderSize(string dir) => new DirectoryInfo(dir).EnumerateFiles("*", Options).Sum(f =>
+    public static IReadOnlyList<CleanupItem> Scan() =>
+        Categories().Select(c => new CleanupItem(c, c.RecycleBin ? RecycleBinSize() : Roots(c).Sum(d => FolderSize(c, d)))).ToList();
+
+    private static long FolderSize(CleanupCategory c, string dir) => Files(c, dir).Sum(f =>
     {
         try { return f.Length; }
         catch (IOException) { return 0L; }
@@ -49,16 +81,20 @@ public static partial class Cleanup
         {
             if (c.RecycleBin)
             {
-                freed += RecycleBinSize();
-                SHEmptyRecycleBinW(IntPtr.Zero, null, 0x1 | 0x2 | 0x4);   // no confirmation, no progress, no sound
+                var size = RecycleBinSize();
+                var hr = SHEmptyRecycleBinW(IntPtr.Zero, null, 0x1 | 0x2 | 0x4);   // no confirmation, no progress, no sound
+                if (hr == 0) freed += size; else Log.Warn($"Emptying the Recycle Bin failed (0x{hr:X8}).");
                 continue;
             }
-            if (c.StopService is { } svc) NativeProcess.Run("sc.exe", ["stop", svc]);
+            // Only services that were running are started again afterwards.
+            var stopped = (c.StopServices ?? []).Where(Services.IsRunning).ToList();
+            foreach (var svc in stopped)
+                if (!Services.StopAndWait(svc, TimeSpan.FromSeconds(30))) Log.Warn($"Cleanup: service {svc} did not stop in time.");
             try
             {
-                foreach (var dir in c.Paths.Where(Directory.Exists))
+                foreach (var dir in Roots(c))
                 {
-                    foreach (var f in new DirectoryInfo(dir).EnumerateFiles("*", Options))
+                    foreach (var f in Files(c, dir))
                     {
                         try { var len = f.Length; f.Delete(); freed += len; }
                         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }   // in use
@@ -71,7 +107,10 @@ public static partial class Cleanup
                     }
                 }
             }
-            finally { if (c.StopService is { } s) NativeProcess.Run("sc.exe", ["start", s]); }
+            finally
+            {
+                foreach (var svc in Enumerable.Reverse(stopped)) NativeProcess.Run("sc.exe", ["start", svc]);
+            }
         }
         Log.Ok($"Cleanup: {freed / 1048576.0:N0} MB freed (files in use skipped).");
         return freed;

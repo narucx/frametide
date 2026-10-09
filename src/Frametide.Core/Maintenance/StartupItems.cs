@@ -60,7 +60,8 @@ public static partial class StartupItems
             }
         }
 
-        items.AddRange(Tasks());
+        try { items.AddRange(Tasks()); }
+        catch (Exception e) when (IsAccessError(e)) { Log.Warn($"Scheduled tasks could not be read: {e.Message}"); }
         return items.OrderBy(i => i.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
     }
 
@@ -100,8 +101,15 @@ public static partial class StartupItems
             var folder = folders.Pop();
             string path = folder.Path;
             if (path.StartsWith(@"\Microsoft", StringComparison.OrdinalIgnoreCase) || path.StartsWith(@"\Frametide", StringComparison.OrdinalIgnoreCase)) continue;
-            foreach (var sub in folder.GetFolders(0)) folders.Push(sub);
-            foreach (var task in folder.GetTasks(1))   // TASK_ENUM_HIDDEN
+            // Folders and tasks with restricted permissions (anti-cheat, OEM tools) are skipped, not fatal.
+            var tasks = new List<dynamic>();
+            try
+            {
+                foreach (var sub in folder.GetFolders(0)) folders.Push(sub);
+                foreach (var task in folder.GetTasks(1)) tasks.Add(task);   // TASK_ENUM_HIDDEN
+            }
+            catch (Exception e) when (IsAccessError(e)) { continue; }
+            foreach (var task in tasks)
             {
                 try
                 {
@@ -120,11 +128,14 @@ public static partial class StartupItems
                     items.Add(new StartupItem(StartupKind.Task, (string)task.Name, $"{exe} {args}".Trim(), "Scheduled task", (bool)task.Enabled,
                         Publisher(ExePath(exe)), TaskPath: path));
                 }
-                catch (System.Runtime.InteropServices.COMException) { }   // no access to this task
+                catch (Exception e) when (IsAccessError(e)) { }   // no access to this task
             }
         }
         return items;
     }
+
+    private static bool IsAccessError(Exception e) =>
+        e is System.Runtime.InteropServices.COMException or UnauthorizedAccessException or Microsoft.CSharp.RuntimeBinder.RuntimeBinderException;
 
     private static dynamic TaskService()
     {

@@ -42,12 +42,11 @@ public partial class Cs2Page : UserControl
             var block = SrvList.Children.OfType<CheckBox>().Where(c => c.IsChecked == true).Select(c => ((RelayRegion)c.Tag).Code)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             var regions = _regions;
-            await _main.RunAsync("Server blocker", () => ServerBlocker.Apply(regions, block));
-            Info(T("{0} region(s) blocked.", block.Count));
+            if (await _main.RunAsync("Server blocker", () => ServerBlocker.Apply(regions, block))) Info(T("{0} region(s) blocked.", block.Count));
         };
         SrvClear.Click += async (_, _) =>
         {
-            await _main.RunAsync("Server blocker", ServerBlocker.UnblockAll);
+            if (!await _main.RunAsync("Server blocker", ServerBlocker.UnblockAll)) return;
             foreach (var c in SrvList.Children.OfType<CheckBox>()) c.IsChecked = false;
         };
 

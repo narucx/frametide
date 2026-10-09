@@ -56,4 +56,23 @@ public sealed class Cs2Tests : IDisposable
         Assert.Equal([("Resolution (width)", "1920", false), ("V-Sync", "Off", true), ("NVIDIA Reflex", "Enabled + Boost", true), ("Shadows", "Very high", true)],
             s.Select(v => (v.Name, v.Value, v.Translate)));
     }
+
+    [Theory]
+    [InlineData("155.133.226.75", "155.133.226.75")]
+    [InlineData(" 162.254.193.6 ", "162.254.193.6")]
+    [InlineData("10.0.0.1", null)]
+    [InlineData("192.168.1.1", null)]
+    [InlineData("172.20.0.1", null)]
+    [InlineData("127.0.0.1", null)]
+    [InlineData("0.0.0.0", null)]
+    [InlineData("255.255.255.255", null)]
+    [InlineData("224.0.0.1", null)]
+    [InlineData("169.254.1.1", null)]
+    [InlineData("100.64.0.1", null)]
+    [InlineData("1", null)]
+    [InlineData("0x9b.133.226.75", null)]
+    [InlineData("::1", null)]
+    [InlineData("2001:db8::1", null)]
+    public void Only_public_IPv4_relay_addresses_are_blocked(string text, string? expected) =>
+        Assert.Equal(expected, ServerBlocker.PublicIPv4(text));
 }

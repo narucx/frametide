@@ -31,8 +31,8 @@ public static partial class ServerBlocker
         {
             if (!ValidCode().IsMatch(pop.Name) || !pop.Value.TryGetProperty("relays", out var relays)) continue;
             var ips = relays.EnumerateArray()
-                .Select(r => r.TryGetProperty("ipv4", out var ip) ? ip.GetString() : null)
-                .Where(ip => ip is not null && System.Net.IPAddress.TryParse(ip, out _)).Select(ip => ip!).ToList();
+                .Select(r => r.TryGetProperty("ipv4", out var ip) && ip.ValueKind == JsonValueKind.String ? PublicIPv4(ip.GetString()!) : null)
+                .OfType<string>().Distinct().ToList();
             if (ips.Count == 0) continue;
             regions.Add((pop.Name, pop.Value.TryGetProperty("desc", out var d) ? d.GetString() ?? pop.Name : pop.Name, ips));
         }
@@ -54,24 +54,42 @@ public static partial class ServerBlocker
     public static HashSet<string> BlockedCodes()
     {
         var codes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var name in RuleNames()) codes.Add(name[RulePrefix.Length..]);
+        foreach (var name in Rules().Keys) codes.Add(name[RulePrefix.Length..]);
         return codes;
     }
 
-    /// <summary>Blocks exactly the given regions; rules for all others are removed.</summary>
-    public static void Apply(IEnumerable<RelayRegion> regions, ISet<string> block)
+    /// <summary>
+    /// Blocks exactly the given regions; rules for all others are removed, also rules of regions that are no longer in
+    /// Steam's list. Rules of regions whose relay addresses changed get the new addresses.
+    /// </summary>
+    public static void Apply(IReadOnlyList<RelayRegion> regions, ISet<string> block)
     {
+        if (regions.Count == 0) throw new InvalidOperationException("The CS2 server list is not loaded.");
         dynamic policy = Policy();
-        var existing = RuleNames().ToHashSet();   // enumerating all firewall rules is slow: once
+        var existing = Rules();   // enumerating all firewall rules is slow: once
+        var known = regions.Select(r => RulePrefix + r.Code).ToHashSet(StringComparer.Ordinal);
+        foreach (var (name, _) in existing.Where(e => !known.Contains(e.Key)))
+        {
+            policy.Rules.Remove(name);
+            Log.Ok($"CS2 region {name[RulePrefix.Length..]} unblocked: no longer in Steam's server list.");
+        }
         foreach (var r in regions)
         {
             var name = RulePrefix + r.Code;
-            var has = existing.Contains(name);
-            if (block.Contains(r.Code) == has) continue;
-            if (has)
+            var addresses = string.Join(",", r.Addresses.Select(a => a + "/255.255.255.255"));
+            var has = existing.TryGetValue(name, out var current);
+            if (!block.Contains(r.Code))
             {
+                if (!has) continue;
                 policy.Rules.Remove(name);
                 Log.Ok($"CS2 region unblocked: {r.Description} ({r.Code}).");
+                continue;
+            }
+            if (has)
+            {
+                if (current == addresses) continue;
+                policy.Rules.Item(name).RemoteAddresses = addresses;
+                Log.Ok($"CS2 region {r.Description} ({r.Code}): relay addresses updated.");
                 continue;
             }
             dynamic rule = Activator.CreateInstance(Type.GetTypeFromProgID("HNetCfg.FWRule", throwOnError: true)!)!;
@@ -81,30 +99,48 @@ public static partial class ServerBlocker
             rule.Direction = 2;               // NET_FW_RULE_DIR_OUT
             rule.Action = 0;                  // NET_FW_ACTION_BLOCK
             rule.Profiles = 0x7FFFFFFF;       // all profiles
-            rule.RemoteAddresses = string.Join(",", r.Addresses);
+            rule.RemoteAddresses = addresses;
             rule.Enabled = true;
             policy.Rules.Add(rule);
             Log.Ok($"CS2 region blocked: {r.Description} ({r.Code}).");
         }
     }
 
+    /// <summary>A public unicast IPv4 address in canonical form, or null: a bad feed must not block the LAN or everything.</summary>
+    internal static string? PublicIPv4(string text)
+    {
+        text = text.Trim();
+        if (!System.Net.IPAddress.TryParse(text, out var addr) || addr.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork) return null;
+        var canonical = addr.ToString();
+        if (canonical != text) return null;   // no "1", "0x7f.1" or other shorthand forms
+        var b = addr.GetAddressBytes();
+        var bad = b[0] is 0 or 10 or 127 or >= 224
+                  || b[0] == 100 && b[1] is >= 64 and < 128      // carrier-grade NAT
+                  || b[0] == 169 && b[1] == 254
+                  || b[0] == 172 && b[1] is >= 16 and < 32
+                  || b[0] == 192 && b[1] == 168;
+        return bad ? null : canonical;
+    }
+
     public static void UnblockAll()
     {
         dynamic policy = Policy();
-        foreach (var name in RuleNames()) policy.Rules.Remove(name);
+        foreach (var name in Rules().Keys) policy.Rules.Remove(name);
         Log.Ok("All CS2 server blocks removed.");
     }
 
     private static dynamic Policy() => Activator.CreateInstance(Type.GetTypeFromProgID("HNetCfg.FwPolicy2", throwOnError: true)!)!;
 
-    private static List<string> RuleNames()
+    /// <summary>Frametide's rules: name to remote addresses.</summary>
+    private static Dictionary<string, string> Rules()
     {
-        var names = new List<string>();
+        var rules = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (dynamic rule in Policy().Rules)
         {
-            if ((string?)rule.Grouping == Group && rule.Name is string name && name.StartsWith(RulePrefix, StringComparison.Ordinal)) names.Add(name);
+            if ((string?)rule.Grouping == Group && rule.Name is string name && name.StartsWith(RulePrefix, StringComparison.Ordinal))
+                rules[name] = (string?)rule.RemoteAddresses ?? "";
         }
-        return names;
+        return rules;
     }
 
     [GeneratedRegex("^[a-z0-9]{2,8}$")]

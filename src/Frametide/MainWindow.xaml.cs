@@ -194,7 +194,8 @@ public partial class MainWindow : Window
         }
     }
 
-    public Task RunAsync(string name, Action work) => RunAsync<bool>(name, () => { work(); return true; });
+    /// <summary>Like the other overload; true when the work ran without error.</summary>
+    public Task<bool> RunAsync(string name, Action work) => RunAsync<bool>(name, () => { work(); return true; });
 
     private void UpdateBusy() => BusyText.Text = _busy.Count > 0 ? T("Running: {0} ...", string.Join(", ", _busy)) : "";
 

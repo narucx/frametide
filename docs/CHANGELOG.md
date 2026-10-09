@@ -1,5 +1,15 @@
 ﻿# Changelog
 
+## Unreleased
+
+### Fixed
+- Cleanup: never cleans a drive root or a top-level system folder; Windows Update downloads are only removed after the update services stopped
+- Ghost devices: only entries not seen for over 30 days are pre-selected, with a "last seen" date and a warning before removal
+- Preinstalled apps: exact package names (nothing similar gets removed); a failing app no longer stops the others; Teams entries clearly named
+- Autostart list: folders of scheduled tasks that cannot be read are skipped instead of failing the whole list
+- CS2 server blocker: rules follow changed relay addresses, regions removed by Valve get unblocked, only public IPv4 addresses are blocked
+- Success messages only appear when the action actually worked
+
 ## v0.1.0-beta.5
 
 ### Changed

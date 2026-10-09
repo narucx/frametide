@@ -20,7 +20,9 @@ public partial class MaintenancePage : UserControl
 
         RestoreButton.Click += async (_, _) =>
         {
-            var error = await _main.RunAsync("Restore point", () => RestorePoint.Create("Frametide"));
+            // An exception is already shown by RunAsync (ok is then false).
+            var (ok, error) = await _main.RunAsync("Restore point", () => (true, RestorePoint.Create("Frametide")));
+            if (!ok) return;
             if (error is null) Info(T("Restore point created."));
             else Info(T("The restore point could not be created. Details in the log.") + "\n\n" + T(error), MessageBoxImage.Warning);
         };
@@ -52,7 +54,7 @@ public partial class MaintenancePage : UserControl
         {
             var apps = Checked<PreinstalledApp>(AppList).ToList();
             if (apps.Count == 0) return;
-            if (Ask(T("Remove {0} app(s) for all users?", apps.Count) + "\n\n" + string.Join(", ", apps.Select(a => T(a.Name))), icon: MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+            if (Ask(T("Remove {0} app(s) for all users?", apps.Count) + "\n\n" + string.Join("\n", apps.Select(a => $"{T(a.Name)}: {string.Join(", ", a.FamilyNames.Select(f => f.Split('_')[0]))}")), icon: MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
             await _main.RunAsync("Removing apps", () => PreinstalledApps.Remove(apps));
             ShowApps(await _main.RunAsync("Scanning apps", PreinstalledApps.Find) ?? []);
         };
@@ -60,7 +62,9 @@ public partial class MaintenancePage : UserControl
         GhostRemove.Click += async (_, _) =>
         {
             var ids = Checked<GhostDevice>(GhostList).Select(g => g.InstanceId).ToList();
-            if (ids.Count == 0 || Ask(T("Remove {0} device entry(ies)?", ids.Count)) != MessageBoxResult.Yes) return;
+            if (ids.Count == 0 || Ask(T("Remove {0} device entry(ies)?", ids.Count) + "\n\n"
+                + T("Devices that are only unplugged or switched off right now are listed too. They are set up again when connected, but lose their settings (e.g. audio, monitor colour profile, Bluetooth pairing)."),
+                icon: MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
             await _main.RunAsync("Removing ghost devices", () => GhostDevices.Remove(ids));
             ShowGhosts(await _main.RunAsync("Scanning ghost devices", GhostDevices.Find) ?? []);
         };
@@ -125,9 +129,9 @@ public partial class MaintenancePage : UserControl
         foreach (var d in devices)
             GhostList.Children.Add(new CheckBox
             {
-                Content = $"[{d.Class}] {d.Name}", Tag = d, Margin = new Thickness(0, 4, 16, 4),
-                // Audio endpoints, software components and printers come back on their own or are virtual: not preselected.
-                IsChecked = d.Class is not "AudioEndpoint" and not "SoftwareComponent" and not "PrintQueue",
+                Content = $"[{d.Class}] {d.Name}  -  " + (d.LastSeen is { } seen ? T("last seen {0:d}", seen.ToLocalTime()) : T("last seen: unknown")),
+                Tag = d, Margin = new Thickness(0, 4, 16, 4),
+                IsChecked = d.Suggested,
             });
     }
 }

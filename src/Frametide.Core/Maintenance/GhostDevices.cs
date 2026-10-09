@@ -4,7 +4,16 @@ using Microsoft.Win32;
 
 namespace Frametide.Core.Maintenance;
 
-public sealed record GhostDevice(string Class, string Name, string InstanceId);
+/// <param name="LastSeen">Last time the device was connected or removed (UTC), null when unknown.</param>
+public sealed record GhostDevice(string Class, string Name, string InstanceId, DateTime? LastSeen)
+{
+    /// <summary>
+    /// Suggested for removal: not seen for a month and not a kind of device that is often just unplugged or switched
+    /// off for a while (dock, headset dongle, controller, Bluetooth, monitor), whose settings would be lost.
+    /// </summary>
+    public bool Suggested => LastSeen is { } seen && DateTime.UtcNow - seen > TimeSpan.FromDays(30)
+        && Class is not ("AudioEndpoint" or "SoftwareComponent" or "PrintQueue" or "Bluetooth" or "Monitor" or "MEDIA" or "USB" or "XboxComposite");
+}
 
 /// <summary>
 /// Devices Windows remembers but that are not connected anymore ("show hidden devices" in Device Manager): old USB
@@ -39,7 +48,7 @@ public static class GhostDevices
                     // The registry values of device keys are not readable for everyone; the device API is.
                     if (Devices.GetProperty(id, Devices.PropertyClass) is not { } cls || !Classes.Contains(cls)) continue;
                     var name = Devices.GetProperty(id, Devices.PropertyFriendlyName) ?? Devices.GetProperty(id, Devices.PropertyDeviceDesc) ?? device;
-                    result.Add(new GhostDevice(cls, name, id));
+                    result.Add(new GhostDevice(cls, name, id, Devices.LastSeen(id)));
                 }
             }
         }
@@ -52,9 +61,13 @@ public static class GhostDevices
         foreach (var id in instanceIds)
         {
             total++;
-            var r = NativeProcess.Run("pnputil.exe", ["/remove-device", id]);
-            if (r.ExitCode == 0) ok++;
-            else Log.Warn($"Removing {id} failed: {r.Output.Trim()}");
+            try
+            {
+                var r = NativeProcess.Run("pnputil.exe", ["/remove-device", id]);
+                if (r.ExitCode == 0) ok++;
+                else Log.Warn($"Removing {id} failed: {r.Output.Trim()}");
+            }
+            catch (Exception e) { Log.Warn($"Removing {id} failed: {e.Message}"); }
         }
         Log.Ok($"Ghost devices removed: {ok} of {total}.");
         return ok;

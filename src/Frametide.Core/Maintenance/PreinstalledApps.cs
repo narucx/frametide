@@ -30,7 +30,8 @@ public static class PreinstalledApps
         ("Microsoft.ZuneVideo", "Movies & TV", true),
         ("Microsoft.Todos", "Microsoft To Do", false),
         ("Microsoft.PowerAutomateDesktop", "Power Automate", true),
-        ("MSTeams", "Microsoft Teams (personal)", true),
+        ("MicrosoftTeams", "Microsoft Teams (personal, old chat app)", true),
+        ("MSTeams", "Microsoft Teams (new, also work/school)", false),
         ("Microsoft.549981C3F5F10", "Cortana", true),
         ("Microsoft.OutlookForWindows", "Outlook (new)", false),
         ("Microsoft.Windows.DevHome", "Dev Home", true),
@@ -42,10 +43,10 @@ public static class PreinstalledApps
         ("Microsoft.YourPhone", "Phone Link", false),
         ("Microsoft.WindowsSoundRecorder", "Sound Recorder", false),
         ("Microsoft.XboxGamingOverlay", "Xbox Game Bar (Win+G)", false),
-        ("*Disney*", "Disney+", true),
-        ("*SpotifyMusic*", "Spotify (Store version)", false),
-        ("*CandyCrush*", "Candy Crush", true),
-        ("*LinkedIn*", "LinkedIn", true),
+        ("Disney.37853FC22B2CE", "Disney+", true),
+        ("SpotifyAB.SpotifyMusic", "Spotify (Store version)", false),
+        ("king.com.CandyCrush*", "Candy Crush", true),
+        ("7EE7776C.LinkedInforWindows", "LinkedIn", true),
     ];
 
     /// <summary>Package name pattern: exact name, or "*" as wildcard.</summary>
@@ -76,20 +77,21 @@ public static class PreinstalledApps
         var pm = new PackageManager();
         foreach (var app in apps)
         {
-            try
-            {
-                // Provisioned copy first, otherwise Windows installs the app again for the next new account.
-                foreach (var family in app.FamilyNames)
-                    Wait(pm.DeprovisionPackageForAllUsersAsync(family).AsTask());
-                foreach (var full in app.PackageFullNames)
-                    Wait(pm.RemovePackageAsync(full, RemovalOptions.RemoveForAllUsers).AsTask());
-                Log.Ok($"Removed: {app.Name}.");
-            }
-            catch (Exception e) when (e is InvalidOperationException or UnauthorizedAccessException or System.Runtime.InteropServices.COMException)
-            {
-                Log.Warn($"{app.Name}: {e.Message}");
-            }
+            // Every package on its own: one failure must not leave the rest of the app (or the other apps) untouched.
+            // Provisioned copy first, otherwise Windows installs the app again for the next new account.
+            var failed = 0;
+            foreach (var family in app.FamilyNames)
+                if (!Try(app.Name, family, () => Wait(pm.DeprovisionPackageForAllUsersAsync(family).AsTask()))) failed++;
+            foreach (var full in app.PackageFullNames)
+                if (!Try(app.Name, full, () => Wait(pm.RemovePackageAsync(full, RemovalOptions.RemoveForAllUsers).AsTask()))) failed++;
+            if (failed == 0) Log.Ok($"Removed: {app.Name}.");
         }
+    }
+
+    private static bool Try(string app, string package, Action action)
+    {
+        try { action(); return true; }
+        catch (Exception e) { Log.Warn($"{app} ({package}): {e.Message}"); return false; }
     }
 
     private static void Wait(Task<DeploymentResult> operation)

@@ -36,6 +36,28 @@ public static partial class Devices
         return System.Text.Encoding.Unicode.GetString(buffer, 0, (int)length).TrimEnd('\0');
     }
 
+    /// <summary>When the device was last connected or removed (also for phantoms), or null when Windows did not record it.</summary>
+    public static DateTime? LastSeen(string instanceId)
+    {
+        if (CM_Locate_DevNodeW(out var node, instanceId, 1) != 0) return null;
+        DateTime? latest = null;
+        foreach (var pid in new uint[] { 102, 103 })   // DEVPKEY_Device_LastArrivalDate, DEVPKEY_Device_LastRemovalDate
+        {
+            var key = new DevPropKey { Fmtid = new Guid("83da6326-97a6-4088-9453-a1923f573b29"), Pid = pid };
+            var length = 8u;
+            if (CM_Get_DevNode_PropertyW(node, ref key, out var type, out var fileTime, ref length, 0) != 0 || type != 0x10) continue;   // DEVPROP_TYPE_FILETIME
+            var at = DateTime.FromFileTimeUtc(fileTime);
+            if (latest is null || at > latest) latest = at;
+        }
+        return latest;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct DevPropKey { public Guid Fmtid; public uint Pid; }
+
+    [LibraryImport("cfgmgr32.dll")]
+    private static partial int CM_Get_DevNode_PropertyW(uint devInst, ref DevPropKey key, out uint type, out long buffer, ref uint length, uint flags);
+
     [LibraryImport("cfgmgr32.dll")]
     private static partial int CM_Get_DevNode_Registry_PropertyW(uint devInst, uint property, out uint type, [Out] byte[] buffer, ref uint length, uint flags);
 

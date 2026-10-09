@@ -626,5 +626,10 @@
   "Frametide is up to date.": "Frametide ist aktuell.",
   "Update check failed: {0}": "Update-Suche fehlgeschlagen: {0}",
   "Needs Frametide installed for all users (Frametide-win.msi from the releases page): this copy is in a folder that standard users can change, so Windows must not start it with administrator rights.": "Braucht Frametide für alle Benutzer installiert (Frametide-win.msi von der Releases-Seite): Diese Kopie liegt in einem Ordner, den normale Benutzer ändern können, deshalb darf Windows sie nicht mit Administratorrechten starten.",
-  "This needs Frametide installed for all users (Frametide-win.msi from the releases page). This copy is in a folder that standard users can change, so Windows must not start it with administrator rights at sign-in.": "Dafür muss Frametide für alle Benutzer installiert sein (Frametide-win.msi von der Releases-Seite). Diese Kopie liegt in einem Ordner, den normale Benutzer ändern können, deshalb darf Windows sie bei der Anmeldung nicht mit Administratorrechten starten."
+  "This needs Frametide installed for all users (Frametide-win.msi from the releases page). This copy is in a folder that standard users can change, so Windows must not start it with administrator rights at sign-in.": "Dafür muss Frametide für alle Benutzer installiert sein (Frametide-win.msi von der Releases-Seite). Diese Kopie liegt in einem Ordner, den normale Benutzer ändern können, deshalb darf Windows sie bei der Anmeldung nicht mit Administratorrechten starten.",
+  "Devices that are only unplugged or switched off right now are listed too. They are set up again when connected, but lose their settings (e.g. audio, monitor colour profile, Bluetooth pairing).": "Geräte, die gerade nur abgesteckt oder ausgeschaltet sind, stehen auch in der Liste. Sie werden beim Anschließen neu eingerichtet, verlieren aber ihre Einstellungen (z. B. Audio, Farbprofil des Monitors, Bluetooth-Kopplung).",
+  "last seen {0:d}": "zuletzt gesehen {0:d}",
+  "last seen: unknown": "zuletzt gesehen: unbekannt",
+  "Microsoft Teams (new, also work/school)": "Microsoft Teams (neu, auch Arbeit/Schule)",
+  "Microsoft Teams (personal, old chat app)": "Microsoft Teams (privat, alte Chat-App)"
 }
