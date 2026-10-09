@@ -14,7 +14,8 @@ Every change is backed up and can be reverted exactly; nothing is hidden, no tel
 | | |
 |---|---|
 | ![Tweaks & profiles](docs/screenshots/tweaks.png) | ![Game Boost](docs/screenshots/gameboost.png) |
-| ![Benchmark](docs/screenshots/benchmark.png) | ![GPU & undervolt](docs/screenshots/gpu.png) |
+| ![Benchmark](docs/screenshots/benchmark.png) | ![Benchmark sessions](docs/screenshots/benchmark-sessions.png) |
+| ![GPU & undervolt](docs/screenshots/gpu.png) | ![Maintenance](docs/screenshots/maintenance.png) |
 
 ## Install
 
