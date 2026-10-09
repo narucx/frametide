@@ -1,6 +1,6 @@
 ﻿# Changelog
 
-## Unreleased
+## v0.1.0-beta.6
 
 ### Fixed
 - Cleanup: never cleans a drive root or a top-level system folder; Windows Update downloads are only removed after the update services stopped
@@ -27,6 +27,10 @@
 - The update program (Update.exe) and its folder are checked too before sign-in tasks are kept
 - Sign-in tasks are only removed when the program they start is certainly unsafe, not during an update
 - PresentMon's signer must be exactly "Intel Corporation"
+
+### Notes
+- Not code-signed yet: Windows SmartScreen shows a warning on the first start ("More info" > "Run anyway").
+- Tweaks that were already active before Frametide changed them have no backup and therefore no "Revert" any more.
 
 ## v0.1.0-beta.5
 
