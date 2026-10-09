@@ -136,6 +136,134 @@ public sealed class GameBoostTests : IDisposable
     }
 
     [Fact]
+    public void Auto_boost_respects_a_manual_stop_until_the_game_closed()
+    {
+        var auto = new AutoBoost();
+        var t0 = new DateTime(2026, 1, 1, 20, 0, 0);
+        Assert.Equal(AutoBoostAction.Start, auto.Decide(true, null, t0));
+        Assert.Equal(AutoBoostAction.None, auto.Decide(true, new BoostState { Auto = true }, t0.AddSeconds(3)));
+
+        // STOP pressed while the game runs: no new START.
+        Assert.Equal(AutoBoostAction.None, auto.Decide(true, null, t0.AddSeconds(6)));
+        Assert.Equal(AutoBoostAction.None, auto.Decide(true, null, t0.AddSeconds(9)));
+
+        // Game closed: the next session starts again.
+        Assert.Equal(AutoBoostAction.None, auto.Decide(false, null, t0.AddSeconds(12)));
+        Assert.Equal(AutoBoostAction.Start, auto.Decide(true, null, t0.AddSeconds(15)));
+    }
+
+    [Fact]
+    public void Auto_boost_starts_again_after_its_own_stop()
+    {
+        var auto = new AutoBoost();
+        var t0 = new DateTime(2026, 1, 1, 20, 0, 0);
+        var state = new BoostState { Auto = true };
+        Assert.Equal(AutoBoostAction.None, auto.Decide(false, state, t0));
+        Assert.Equal(AutoBoostAction.Stop, auto.Decide(false, state, t0.AddSeconds(21)));
+        Assert.Equal(AutoBoostAction.Start, auto.Decide(true, null, t0.AddSeconds(24)));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("{ \"StartedAt\": ")]
+    public void Unreadable_state_file_does_not_block_game_boost(string content)
+    {
+        File.WriteAllText(AppPaths.BoostState, content);
+        Assert.False(GameBoost.IsActive);
+        Assert.Null(GameBoost.State);
+
+        GameBoost.Stop();
+        Assert.False(File.Exists(AppPaths.BoostState));
+        Assert.Single(Directory.GetFiles(_dir, "boost-state.json.corrupt-*"));
+    }
+
+    [Fact]
+    public void Stop_does_not_resume_unrecognisable_processes_and_clears_the_state()
+    {
+        // Own PID without a start time: it must not be resumed by PID and name alone.
+        var self = System.Diagnostics.Process.GetCurrentProcess();
+        JsonFile.Write(AppPaths.BoostState, new BoostState { Suspended = [new SuspendedProcess(self.Id, self.ProcessName, null)] });
+        Assert.True(GameBoost.IsActive);
+
+        GameBoost.Stop();
+        Assert.False(GameBoost.IsActive);
+        Assert.False(File.Exists(AppPaths.BoostState));
+    }
+
+    [Fact]
+    public void Anti_cheat_and_launchers_are_protected_with_a_reason()
+    {
+        var cfg = new BoostConfig();
+        foreach (var exe in new[] { "vgc.exe", "EasyAntiCheat_EOS.exe", "BEService.exe", "FACEIT.exe", "RiotClientServices.exe" })
+        {
+            Assert.True(GameBoost.IsProtected(exe, cfg));
+            Assert.Contains("anti-cheat", GameBoost.ProtectionReason(exe, cfg));
+        }
+        Assert.Null(GameBoost.ProtectionReason("discord.exe", cfg));
+    }
+
+    [Fact]
+    public void Duplicate_games_are_set_once_and_restored_in_reverse_order()
+    {
+        var root = LaunchPriority.Root;
+        Reg.Set($@"{root}\game.exe\PerfOptions", "CpuPriorityClass", RegistryValueKind.DWord, 2);
+
+        var first = LaunchPriority.Set([new GameEntry { Exe = "game.exe", Priority = GamePriority.AboveNormal }, new GameEntry { Exe = "GAME.exe", Priority = GamePriority.High }]);
+        Assert.Single(first);
+        // A second change on top of the first one: restoring both must end at the real original.
+        var second = LaunchPriority.Set([new GameEntry { Exe = "game.exe", Priority = GamePriority.High }]);
+        Assert.Equal(6, second.Single().PrevValue);
+
+        Assert.Empty(LaunchPriority.Restore([.. first, .. second]));
+        Assert.Equal(2, Reg.Get($@"{root}\game.exe\PerfOptions", "CpuPriorityClass").Value);
+    }
+
+    [Fact]
+    public void Launch_priority_leaves_a_value_of_another_type_alone()
+    {
+        var perf = $@"{LaunchPriority.Root}\game.exe\PerfOptions";
+        Reg.Set(perf, "CpuPriorityClass", RegistryValueKind.String, "3");
+
+        Assert.Empty(LaunchPriority.Set([new GameEntry { Exe = "game.exe", Priority = GamePriority.High }]));
+        Assert.Equal(RegistryValueKind.String, Reg.Get(perf, "CpuPriorityClass").Kind);
+    }
+
+    [Fact]
+    public void Launch_priority_originals_are_on_disk_before_the_registry_changes()
+    {
+        var perf = $@"{LaunchPriority.Root}\game.exe\PerfOptions";
+        var seen = false;
+        LaunchPriority.Set([new GameEntry { Exe = "game.exe" }], done =>
+        {
+            Assert.Equal("game.exe", done.Single().Exe);
+            Assert.False(Reg.Get(perf, "CpuPriorityClass").Exists);
+            seen = true;
+        });
+        Assert.True(seen);
+        Assert.Equal(6, Reg.Get(perf, "CpuPriorityClass").Value);
+    }
+
+    [Fact]
+    public void Unreadable_launch_priority_backup_is_kept()
+    {
+        File.WriteAllText(AppPaths.IfeoState, "{ broken");
+        var cfg = new BoostConfig { Games = [new GameEntry { Exe = "game.exe" }] };
+
+        Assert.Empty(LaunchPriority.Persistent);
+        LaunchPriority.EnablePersistent(cfg);
+        LaunchPriority.DisablePersistent();
+        Assert.Equal("{ broken", File.ReadAllText(AppPaths.IfeoState));
+        Assert.False(Reg.KeyExists($@"{LaunchPriority.Root}\game.exe"));
+    }
+
+    [Fact]
+    public void Duplicate_games_are_dropped_on_load()
+    {
+        Settings.Set("Games", JsonNode.Parse("""[{ "Name": "a", "Exe": "game.exe" }, { "Name": "b", "Exe": "GAME.EXE" }]"""));
+        Assert.Equal(["a"], BoostConfig.Load().Games.Select(g => g.Name));
+    }
+
+    [Fact]
     public void Lasso_lists_are_split_into_rules()
     {
         Assert.Equal([["a.exe", "x"], ["b.exe", "y"]], ProcessLasso.Split("a.exe,x,b.exe,y,c.exe", 2).ToList());

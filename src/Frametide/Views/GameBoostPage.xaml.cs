@@ -140,11 +140,19 @@ public partial class GameBoostPage : UserControl
 
     private void UpdateState()
     {
-        var state = GameBoost.State;
-        StateText.Text = state is null ? T("Game Boost is off") : T("Game Boost running since {0}", state.StartedAt.ToString("HH:mm"));
-        Toggle.Content = state is null ? "START" : "STOP";
-        Toggle.Style = (Style)FindResource(state is null ? "Primary" : "Danger");
-        AutoCheck.IsChecked = BoostConfig.Load().AutoBoost;
+        // Runs from Dispatcher callbacks, where an exception would end the app; the next change updates it again.
+        try
+        {
+            var state = GameBoost.State;
+            StateText.Text = state is null ? T("Game Boost is off") : T("Game Boost running since {0}", state.StartedAt.ToString("HH:mm"));
+            Toggle.Content = state is null ? "START" : "STOP";
+            Toggle.Style = (Style)FindResource(state is null ? "Primary" : "Danger");
+            AutoCheck.IsChecked = BoostConfig.Load().AutoBoost;
+        }
+        catch (Exception e) when (e is System.IO.IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        {
+            Frametide.Core.Infrastructure.Log.Warn($"Game Boost state: {e.Message}");
+        }
     }
 
     private async Task LoadPlansAsync()
