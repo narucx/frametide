@@ -1,10 +1,13 @@
 ﻿# Changelog
 
-## Unreleased
+## v0.1.0-beta.8
 
 ### Fixed
 - Benchmark: when a game starts and PresentMon is not installed yet, it is downloaded automatically instead of the session silently not being recorded
 - Notifications show "Frametide" instead of "velopack.Frametide"
+
+### Added
+- THIRD-PARTY-NOTICES.md lists the included open-source components
 
 ## v0.1.0-beta.7
 
