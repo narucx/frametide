@@ -9,6 +9,12 @@
 - Autostart list: folders of scheduled tasks that cannot be read are skipped instead of failing the whole list
 - CS2 server blocker: rules follow changed relay addresses, regions removed by Valve get unblocked, only public IPv4 addresses are blocked
 - Success messages only appear when the action actually worked
+- Game Boost: the state is saved before every change, so a crash during START never leaves apps frozen without a way back; STOP keeps what it could not undo and can be pressed again
+- Game Boost: anti-cheat services and game launchers are never closed or suspended; priorities and affinities changed for the game are put back on STOP
+- Auto Game Boost no longer starts again right after a manual STOP while the game keeps running
+- GPU tests: a crash or power loss mid-test no longer leaves the GPU locked or at the maximum power limit (reset at the next start)
+- GPU profiles made on another GPU are refused; after a driver change the sign-in profile is skipped until re-tested
+- Exiting while an automatic Game Boost START runs waits for it first
 
 ### Security
 - Native libraries and Windows tools are only loaded from System32, never from the current folder or PATH; .NET startup hooks are off
