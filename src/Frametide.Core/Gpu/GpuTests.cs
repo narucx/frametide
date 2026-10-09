@@ -416,9 +416,8 @@ public static class GpuTests
             Say(p, "Done: {0} MHz at {1} V instead of {2} V. Power {3} W -> {4} W.", target, replay.Voltage, stock.Voltage, stock.AvgPower, replay.AvgPower);
             if (bad is null && !floorReached && final == good.Offset && good.Offset + coarse <= MaxSafeOffset)
             {
-                const string limited = "Limited by MAX OFFSET, not by the GPU: a higher MAX OFFSET may give a lower voltage.";
-                p.Status += " " + L.T(limited);
-                Log.Info("[GPU test] " + limited);
+                p.Status += " " + L.T("Limited by MAX OFFSET, not by the GPU: a higher MAX OFFSET may give a lower voltage.");
+                Log.Info("[GPU test] Limited by MAX OFFSET, not by the GPU.");
             }
         }
         catch (Exception e) when (e is InvalidOperationException or OperationCanceledException)

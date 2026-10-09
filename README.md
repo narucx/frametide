@@ -64,4 +64,4 @@ list: see [docs/PRIVACY.md](docs/PRIVACY.md).
 
 ## License
 
-GPL-3.0, see [LICENSE](LICENSE).
+GPL-3.0, see [LICENSE](LICENSE). Included third-party components: [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
