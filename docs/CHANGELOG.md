@@ -1,6 +1,6 @@
 ﻿# Changelog
 
-## Unreleased
+## v0.1.0-beta.4
 
 ### Changed
 - Installed for all users into C:\Program Files\Frametide (Frametide-win.msi); updates ask for administrator rights
@@ -12,6 +12,11 @@
 
 ### Fixed
 - A data folder in ProgramData that someone else created before Frametide is no longer trusted
+
+### Notes
+- Coming from beta.1 to beta.3: exit Frametide (tray icon > Exit), uninstall it in Settings > Apps, then install
+  Frametide-win.msi. Settings, profiles and benchmarks are kept.
+- Not code-signed yet: Windows SmartScreen shows a warning on the first start ("More info" > "Run anyway").
 
 ## v0.1.0-beta.3
 
