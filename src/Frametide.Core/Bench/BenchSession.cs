@@ -87,7 +87,7 @@ public static class BenchStore
     public static void Delete(string id)
     {
         if (!IsValidId(id)) return;
-        File.Delete(Path.Combine(SessionsDir, $"{id}.json"));
+        JsonFile.Delete(Path.Combine(SessionsDir, $"{id}.json"));
         Changed?.Invoke();
     }
 

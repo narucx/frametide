@@ -102,6 +102,6 @@ public static class LaunchPriority
     public static void DisablePersistent()
     {
         if (JsonFile.Read<IfeoState>(AppPaths.IfeoState) is { } state) Restore(state.Ifeo);
-        File.Delete(AppPaths.IfeoState);
+        JsonFile.Delete(AppPaths.IfeoState);
     }
 }

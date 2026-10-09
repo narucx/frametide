@@ -205,7 +205,7 @@ public static class GameBoost
             // Auto mode keeps launch priorities permanently: make sure they survive this STOP.
             if (cfg.AutoBoost && state.Ifeo.Count > 0) LaunchPriority.EnablePersistent(cfg);
 
-            File.Delete(AppPaths.BoostState);
+            JsonFile.Delete(AppPaths.BoostState);
             Log.Ok("Game Boost stopped.");
         }
         Changed?.Invoke();

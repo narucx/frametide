@@ -9,6 +9,10 @@
 - Autostart list: folders of scheduled tasks that cannot be read are skipped instead of failing the whole list
 - CS2 server blocker: rules follow changed relay addresses, regions removed by Valve get unblocked, only public IPv4 addresses are blocked
 - Success messages only appear when the action actually worked
+- Backup of original values: written to disk before it replaces the old file (the previous version is kept as .bak); a damaged backup is never overwritten, the previous version is used or an error is shown
+- Revert only restores settings Frametide actually changed; tweaks that were already active before have no Revert button, and boot/system services are never touched
+- Network adapter tweaks: a property that did not exist before is removed again on revert instead of being set to the driver default; adapters are recognized by their id, so renamed or unplugged adapters keep their backup
+- USB selective suspend: a failed revert keeps the backup instead of losing it
 
 ## v0.1.0-beta.5
 

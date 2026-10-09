@@ -357,7 +357,7 @@ public static class NvidiaProfiles
             }
             drs.Save();
         }
-        File.Delete(AppPaths.NvProfilesUndo);
+        JsonFile.Delete(AppPaths.NvProfilesUndo);
         Log.Ok("NVIDIA profiles restored to the previous values.");
     }
 }
