@@ -31,7 +31,7 @@ public partial class MaintenancePage : UserControl
             // Own console window: the user sees the progress and the result; it can take a long time.
             const string script = "title Frametide: system file check & echo DISM is checking the component store ... & DISM /Online /Cleanup-Image /RestoreHealth"
                                   + " & echo. & echo SFC is checking system files ... & sfc /scannow & echo. & echo Done. You can close this window. & pause";
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd.exe", "/c " + script) { UseShellExecute = true })?.Dispose();
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(NativeProcess.SystemProgram("cmd.exe"), "/c " + script) { UseShellExecute = true })?.Dispose();
             Log.Info("DISM + SFC started in a separate window.");
         };
         StartupScan.Click += async (_, _) => ShowStartup(await _main.RunAsync("Reading autostart", StartupItems.All) ?? []);

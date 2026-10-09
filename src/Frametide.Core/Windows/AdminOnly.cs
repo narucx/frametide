@@ -53,8 +53,35 @@ public static class AdminOnly
     /// <summary>Whether the folder of a program and everything in it can only be changed by administrators.</summary>
     public static bool IsProtectedProgram(string exePath) => ProgramProblem(exePath) is null;
 
-    public static string? ProgramProblem(string exePath) =>
-        Path.GetDirectoryName(Path.GetFullPath(exePath)) is { } dir ? Problem(dir) : $"{exePath} has no folder";
+    public static string? ProgramProblem(string exePath)
+    {
+        if (Path.GetDirectoryName(Path.GetFullPath(exePath)) is not { } dir) return $"{exePath} has no folder";
+        if (Problem(dir) is { } problem) return problem;
+        // Velopack install: the elevated app also runs Update.exe from the folder above (when applying updates).
+        if (Path.GetDirectoryName(dir) is not { } root || !File.Exists(Path.Combine(root, "Update.exe"))) return null;
+        try { return Problem(root, recursive: false) ?? Check(new FileInfo(Path.Combine(root, "Update.exe")), Change); }
+        catch (Exception e) when (e is UnauthorizedAccessException or IOException) { return $"{root}: {e.Message}"; }
+    }
+
+    /// <summary>
+    /// Whether a program a sign-in task starts is certainly not safe. A missing program counts as safe when the
+    /// nearest existing folder above it is admin-only (nobody else can put it there; e.g. during an update), and a
+    /// failed check is repeated, so a passing state during an update does not cost the user their task.
+    /// </summary>
+    public static string? DefiniteProgramProblem(string exePath)
+    {
+        string? problem = null;
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            if (attempt > 0) Thread.Sleep(TimeSpan.FromSeconds(2));
+            var dir = Path.GetDirectoryName(Path.GetFullPath(exePath));
+            while (dir is not null && !Directory.Exists(dir)) dir = Path.GetDirectoryName(dir);
+            if (dir is null) return $"{exePath} has no existing folder";
+            problem = dir == Path.GetDirectoryName(Path.GetFullPath(exePath)) ? ProgramProblem(exePath) : Problem(dir, recursive: false);
+            if (problem is null) return null;
+        }
+        return problem;
+    }
 
     private static string? Check(FileSystemInfo entry, int rights)
     {

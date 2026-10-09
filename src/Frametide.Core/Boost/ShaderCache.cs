@@ -13,12 +13,11 @@ public static class ShaderCache
         long freed = 0;
         foreach (var dir in Dirs.Select(d => Path.Combine(local, d)).Where(Directory.Exists))
         {
+            // The user can change these folders: never follow a junction out of them (the app runs elevated).
+            if (Windows.SafeDelete.RealRoot(dir) is not { } real) { Log.Warn($"Shader cache: skipped {dir}, it is a link to another folder."); continue; }
             var options = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = FileAttributes.ReparsePoint };
             foreach (var f in new DirectoryInfo(dir).EnumerateFiles("*", options))
-            {
-                try { var len = f.Length; f.Delete(); freed += len; }
-                catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }   // in use
-            }
+                if (Windows.SafeDelete.Delete(f.FullName, real) is var len and >= 0) freed += len;   // -1: in use
         }
         Log.Ok($"Shader cache cleared ({freed / 1048576.0:N0} MB). The first minutes in game may stutter while it rebuilds.");
         return freed;

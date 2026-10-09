@@ -116,7 +116,7 @@ public static class LogonTask
                 command.Value = exePath;
                 Create(name, task.Root!);
             }
-            else if (AdminOnly.ProgramProblem(command.Value) is { } problem)
+            else if (AdminOnly.DefiniteProgramProblem(command.Value) is { } problem)
             {
                 Delete(name);
                 Log.Warn($"Removed the sign-in task {name}: it would start {command.Value} with administrator rights, but {problem}.");

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Security.Principal;
 using Velopack;
 
@@ -15,12 +16,16 @@ public static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // Runs elevated: DLLs loaded by name only come from System32 or the program folder, never from the current
+        // folder or PATH (a standard user can change both).
+        SetDefaultDllDirectories(LoadLibrarySearchApplicationDir | LoadLibrarySearchSystem32);
+
         // Must run first: handles Velopack's install/update/uninstall hooks and exits in those cases. The hooks run
         // without elevation, which is why the manifest does not demand administrator rights.
         VelopackApp.Build().OnBeforeUninstallFastCallback(_ => BeforeUninstall()).Run();
 
         if (args.Length >= 2 && args[0] == "--preview")
-            Preview = (args[1], args.Length >= 3 ? args[2] : "Overview", args.Length >= 4 ? double.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture) : 0);
+            Preview = (Path.GetFullPath(args[1]), args.Length >= 3 ? args[2] : "Overview", args.Length >= 4 ? double.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture) : 0);
 
         // Nearly every feature needs administrator rights: start again elevated (UAC prompt), with the same arguments.
         if (Preview is null && !IsElevated())
@@ -28,6 +33,9 @@ public static class Program
             RestartElevated(args);
             return;
         }
+
+        // Programs started by bare name are looked up in the current folder first: make it one users cannot write to.
+        Directory.SetCurrentDirectory(Environment.SystemDirectory);
 
         if (args is [UninstallArgument])
         {
@@ -86,10 +94,15 @@ public static class Program
 
     private static void RestartElevated(string[] args)
     {
-        // Our arguments contain no backslash before a quote, so wrapping in quotes and doubling inner quotes is enough.
-        var arguments = string.Join(" ", args.Select(a => a.Length > 0 && !a.Any(c => c is ' ' or '"') ? a : $"\"{a.Replace("\"", "\"\"")}\""));
+        var arguments = string.Join(" ", args.Select(Core.Windows.NativeProcess.Quote));
         var psi = new ProcessStartInfo(Environment.ProcessPath!, arguments) { UseShellExecute = true, Verb = "runas" };
         try { Process.Start(psi)?.Dispose(); }
         catch (System.ComponentModel.Win32Exception e) when (e.NativeErrorCode == 1223) { }   // UAC prompt declined
     }
+
+    private const uint LoadLibrarySearchApplicationDir = 0x200, LoadLibrarySearchSystem32 = 0x800;
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    private static extern bool SetDefaultDllDirectories(uint directoryFlags);
 }

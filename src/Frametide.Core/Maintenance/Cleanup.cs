@@ -94,17 +94,17 @@ public static partial class Cleanup
             {
                 foreach (var dir in Roots(c))
                 {
-                    foreach (var f in Files(c, dir))
+                    // Several of these folders are writable for the user: never follow a junction out of them.
+                    if (SafeDelete.RealRoot(dir) is not { } real)
                     {
-                        try { var len = f.Length; f.Delete(); freed += len; }
-                        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }   // in use
+                        Log.Warn($"Cleanup: skipped {dir}, it is a link to another folder.");
+                        continue;
                     }
+                    foreach (var f in Files(c, dir))
+                        if (SafeDelete.Delete(f.FullName, real) is var len and >= 0) freed += len;   // -1: in use
                     // Empty folders, deepest first; the category folder itself stays.
                     foreach (var sub in new DirectoryInfo(dir).EnumerateDirectories("*", Options).OrderByDescending(d => d.FullName.Length))
-                    {
-                        try { sub.Delete(); }
-                        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
-                    }
+                        SafeDelete.Delete(sub.FullName, real);
                 }
             }
             finally

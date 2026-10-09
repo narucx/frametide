@@ -42,7 +42,12 @@ public static partial class Authenticode
     /// <summary>True when the file has a valid signature whose certificate names <paramref name="organization"/> (O=...).</summary>
     public static bool IsSignedBy(string path, string organization)
     {
-        try { return TrustedSigner(path) is { } subject && subject.Contains($"O={organization}", StringComparison.Ordinal); }
+        try
+        {
+            // Exactly that organization (O=), not one that only starts with the same name.
+            return TrustedSigner(path) is { } subject && new X500DistinguishedName(subject).EnumerateRelativeDistinguishedNames()
+                .Any(rdn => rdn.GetSingleElementType().Value == "2.5.4.10" && rdn.GetSingleElementValue() == organization);
+        }
         catch (System.Security.Cryptography.CryptographicException) { return false; }
     }
 

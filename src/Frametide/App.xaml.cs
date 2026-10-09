@@ -44,7 +44,14 @@ public partial class App : Application
             ShowMain();
             return;
         }
-        AppPaths.EnsureDataDir();
+        try { AppPaths.EnsureDataDir(); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Without a trusted data folder nothing is safe to do (journal, sign-in tasks).
+            MessageBox.Show(ex.Message, "Frametide", MessageBoxButton.OK, MessageBoxImage.Error);
+            Shutdown(1);
+            return;
+        }
         Loc.Load(Settings.Language);
         Log.Info($"Frametide started (language {Loc.Code}{(Program.StartInTray ? ", tray" : "")}).");
         if (GameBoost.IsActive) Log.Warn("Game Boost was still active at startup (e.g. after a crash). STOP rolls everything back.");

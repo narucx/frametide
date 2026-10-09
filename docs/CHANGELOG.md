@@ -10,6 +10,14 @@
 - CS2 server blocker: rules follow changed relay addresses, regions removed by Valve get unblocked, only public IPv4 addresses are blocked
 - Success messages only appear when the action actually worked
 
+### Security
+- Native libraries and Windows tools are only loaded from System32, never from the current folder or PATH; .NET startup hooks are off
+- Cleanup and shader cache clearing never delete through junctions or links (the app runs elevated, these folders are user-writable)
+- The data folder is checked again after creating it and gets Administrators as owner
+- The update program (Update.exe) and its folder are checked too before sign-in tasks are kept
+- Sign-in tasks are only removed when the program they start is certainly unsafe, not during an update
+- PresentMon's signer must be exactly "Intel Corporation"
+
 ## v0.1.0-beta.5
 
 ### Changed

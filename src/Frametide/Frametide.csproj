@@ -14,6 +14,8 @@
     <AssemblyName>Frametide</AssemblyName>
     <!-- Own Main (Program.cs) so Velopack's hooks run before WPF starts. -->
     <StartupObject>Frametide.Program</StartupObject>
+    <!-- Runs elevated: no DOTNET_STARTUP_HOOKS (a variable any user process can set loads code into the app). -->
+    <StartupHookSupport>false</StartupHookSupport>
   </PropertyGroup>
 
   <ItemGroup>
