@@ -57,15 +57,39 @@ public sealed class BenchRecorder : IDisposable
 
     public static Recording? Current => JsonFile.Read<Recording>(RecordingFile);
 
+    private Task? _install;
+
+    private void InstallPresentMon(GameEntry game)
+    {
+        if (_install is { IsCompleted: false }) return;
+        Log.Info($"Benchmark: {game.Name} is running, but PresentMon is not installed. Downloading it now.");
+        _install = Task.Run(async () =>
+        {
+            try { await PresentMon.InstallLatestAsync(); }
+            catch (Exception e)
+            {
+                _retryAt = DateTime.Now.AddMinutes(30);
+                Log.Warn($"Benchmark: PresentMon could not be downloaded ({e.Message}). This session is not recorded; next try in 30 minutes.");
+            }
+        });
+    }
+
     /// <summary>Called every few seconds. Returns a recording that has finished and needs <see cref="Complete"/>, otherwise null.</summary>
     public Recording? Tick()
     {
         if (Current is not { } rec)
         {
             if (FindUnanalyzed() is { } earlier) return earlier;
-            if (!RecordEnabled || PresentMon.ExePath is null || DateTime.Now < _retryAt) return null;
+            if (!RecordEnabled || DateTime.Now < _retryAt) return null;
             if (RunningGame() is { } game)
             {
+                // Not installed yet (first benchmark, or the data folder was renewed): fetch it instead of silently
+                // not recording. The recording starts on a later tick, once the download is done.
+                if (PresentMon.ExePath is null)
+                {
+                    InstallPresentMon(game);
+                    return null;
+                }
                 try { StartRecording(game); }
                 catch (Exception e)
                 {

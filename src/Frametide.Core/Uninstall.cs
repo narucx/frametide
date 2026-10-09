@@ -25,6 +25,7 @@ public static class Uninstall
             if (GpuTuning.SignInProfile.Length > 0 || LogonTask.Command(GpuTuning.TaskName) is not null) GpuTuning.SetSignInProfile("", "");
         });
         Try("Task folder", LogonTask.DeleteFolder);
+        Try("Notification name", () => Microsoft.Win32.Registry.CurrentUser.DeleteSubKeyTree(@"Software\Classes\AppUserModelId\velopack.Frametide", throwOnMissingSubKey: false));
     }
 
     private static void Try(string what, Action action)
