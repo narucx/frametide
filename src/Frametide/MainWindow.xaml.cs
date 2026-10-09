@@ -1,8 +1,8 @@
-using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using Frametide.Core.Infrastructure;
 using Frametide.Localization;
+using Frametide.Services;
 using Frametide.Views;
 using static Frametide.Localization.Loc;
 using static Frametide.UiKit;
@@ -37,7 +37,7 @@ public partial class MainWindow : Window
             new("Log", "Everything Frametide has changed.", CreateLogPage),
         ];
 
-        var version = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0] ?? "?";
+        var version = Updater.CurrentVersion;
         FooterText.Text = T("Frametide v{0}  -  vibecoded by Henri  -  no warranty, use at your own risk", version);
         PrereleaseBadge.Visibility = version.Contains('-') ? Visibility.Visible : Visibility.Collapsed;   // only for e.g. 1.0.0-beta
 

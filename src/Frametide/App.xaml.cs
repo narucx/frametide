@@ -63,6 +63,7 @@ public partial class App : Application
         _loop.Start();
         Instance?.Listen(() => Dispatcher.BeginInvoke(ShowMain));
         _ = Task.Run(SecureSignInTasks);
+        if (ProtectedInstall) UninstallEntry.SetVersion(Services.Updater.CurrentVersion);
         if (Program.StartInTray) _trayTipShown = true;
         else ShowMain();
     }
