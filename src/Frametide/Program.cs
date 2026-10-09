@@ -25,7 +25,7 @@ public static class Program
         VelopackApp.Build().OnBeforeUninstallFastCallback(_ => BeforeUninstall()).Run();
 
         if (args.Length >= 2 && args[0] == "--preview")
-            Preview = (Path.GetFullPath(args[1]), args.Length >= 3 ? args[2] : "Overview", args.Length >= 4 ? double.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture) : 0);
+            Preview = (System.IO.Path.GetFullPath(args[1]), args.Length >= 3 ? args[2] : "Overview", args.Length >= 4 ? double.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture) : 0);
 
         // Nearly every feature needs administrator rights: start again elevated (UAC prompt), with the same arguments.
         if (Preview is null && !IsElevated())
@@ -35,7 +35,7 @@ public static class Program
         }
 
         // Programs started by bare name are looked up in the current folder first: make it one users cannot write to.
-        Directory.SetCurrentDirectory(Environment.SystemDirectory);
+        System.IO.Directory.SetCurrentDirectory(Environment.SystemDirectory);
 
         if (args is [UninstallArgument])
         {

@@ -45,7 +45,7 @@ public partial class App : Application
             return;
         }
         try { AppPaths.EnsureDataDir(); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
         {
             // Without a trusted data folder nothing is safe to do (journal, sign-in tasks).
             MessageBox.Show(ex.Message, "Frametide", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -54,6 +54,8 @@ public partial class App : Application
         }
         Loc.Load(Settings.Language);
         Log.Info($"Frametide started (language {Loc.Code}{(Program.StartInTray ? ", tray" : "")}).");
+        HandleCrashes();
+        GpuTests.RecoverAfterCrash();   // a GPU test that did not finish (crash, power loss): GPU back to default
         if (GameBoost.IsActive) Log.Warn("Game Boost was still active at startup (e.g. after a crash). STOP rolls everything back.");
 
         _tray = new TrayIcon(this);
@@ -114,11 +116,14 @@ public partial class App : Application
                     "Frametide", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
             GpuTests.CancelAndWait(TimeSpan.FromSeconds(15));
         }
+        // An automatic START may be running in the background (the timer keeps ticking during a MessageBox): wait for
+        // it and allow no new one, so the question below sees the final state.
+        if (!BoostRunner.CloseAndWait(TimeSpan.FromSeconds(30))) Log.Warn("A Game Boost START/STOP is still running while exiting.");
         if (GameBoost.IsActive)
         {
             var answer = MessageBox.Show(T("Game Boost is still active.\n\nYes = stop Game Boost and exit (everything is rolled back).\nNo = exit and keep Game Boost active (suspended apps stay frozen until you press STOP next time)."),
                 "Frametide", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
-            if (answer == MessageBoxResult.Cancel) return;
+            if (answer == MessageBoxResult.Cancel) { BoostRunner.Reopen(); return; }
             if (answer == MessageBoxResult.Yes)
             {
                 try { GameBoost.Stop(); } catch (Exception ex) { Log.Error($"Stop on exit: {ex.Message}"); }
@@ -130,6 +135,22 @@ public partial class App : Application
         _tray?.Dispose();
         Log.Info("Frametide closed.");
         Shutdown();
+    }
+
+    /// <summary>
+    /// A crash during a GPU test must not leave the GPU locked or at the maximum power limit: reset it before the
+    /// process goes away. Everything is logged.
+    /// </summary>
+    private void HandleCrashes()
+    {
+        static void Crashed(string where, object error)
+        {
+            try { Log.Error($"Unexpected error ({where}): {error}"); } catch (System.IO.IOException) { }
+            GpuTests.CancelAndWait(TimeSpan.Zero);
+        }
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => Crashed("app", e.ExceptionObject);
+        DispatcherUnhandledException += (_, e) => Crashed("window", e.Exception);
+        TaskScheduler.UnobservedTaskException += (_, e) => Crashed("background task", e.Exception);
     }
 
     /// <summary>Installed for all users: only administrators can change the program folder (needed for sign-in tasks).</summary>

@@ -170,7 +170,7 @@ public partial class MainWindow : Window
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto, TextWrapping = TextWrapping.Wrap,
             Text = string.Join(Environment.NewLine, Log.Snapshot()) + Environment.NewLine,
         };
-        var open = Button("Open data folder (backups)", () => System.Diagnostics.Process.Start(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe"), AppPaths.DataDir), margin: "0,10,0,0");
+        var open = Button("Open data folder (backups)", () => System.Diagnostics.Process.Start(System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe"), AppPaths.DataDir), margin: "0,10,0,0");
         open.HorizontalAlignment = HorizontalAlignment.Left;
         return new StackPanel { Children = { _logBox, open } };
     }
