@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## v0.1.0-beta.10
+
+### Fixed
+- Benchmark sessions save the GPU profile that was active while playing (it was read after Game Boost STOP had already reset the GPU, so it was always empty)
+
 ## v0.1.0-beta.9
 
 ### Fixed

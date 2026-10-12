@@ -29,7 +29,7 @@ public sealed class BenchRecorder : IDisposable
 {
     public const int MinSeconds = 60;
 
-    private sealed record Sample(bool Focused, bool Boost, double? GpuW, double? GpuMHz, double? GpuC, double? GpuUtil, double? CpuLoad);
+    private sealed record Sample(bool Focused, bool Boost, string GpuTune, double? GpuW, double? GpuMHz, double? GpuC, double? GpuUtil, double? CpuLoad);
 
     private readonly Lock _gate = new();
     private readonly List<Sample> _samples = [];
@@ -121,8 +121,10 @@ public sealed class BenchRecorder : IDisposable
         focus.UpdatePids();
         var gpu = Nvidia.GetSnapshot();
         var cpu = _cpu.Sample();
+        // The GPU profile while playing: Game Boost STOP resets it before the session is summarized.
+        var tune = gpu is { OffsetMHz: not 0 } ? Settings.GetString("ActiveGpuTune", "") : "";
         lock (_gate)
-            _samples.Add(new Sample(focus.Focused, GameBoost.IsActive, gpu?.PowerW, gpu?.ClockMHz, gpu?.TempC, gpu?.Util, cpu?.Load));
+            _samples.Add(new Sample(focus.Focused, GameBoost.IsActive, tune, gpu?.PowerW, gpu?.ClockMHz, gpu?.TempC, gpu?.Util, cpu?.Load));
 
         // Safety net: PresentMon waits for the game; if the game is gone for 20 s, end the recording.
         if (gameRunning) return null;
@@ -187,7 +189,7 @@ public sealed class BenchRecorder : IDisposable
             StuttersPerMin = Math.Round(r.Stutters / (r.DurationSec / 60), 1), Hitches = r.Hitches,
             Cap = FrameAnalysis.DetectCap(r.Series), Analysis = FrameAnalysis.Version,
             ExcludedSec = Math.Round(r.ExcludedSec), TabOuts = away.Count, Limits = rec.Limits,
-            Boost = boostShare >= 0.5, GpuProfile = Settings.GetString("ActiveGpuTune", ""),
+            Boost = boostShare >= 0.5, GpuProfile = focused.Where(s => s.GpuTune.Length > 0).GroupBy(s => s.GpuTune).MaxBy(g => g.Count())?.Key ?? "",
             GpuW = Avg(s => s.GpuW), GpuMHz = Avg(s => s.GpuMHz), GpuC = Avg(s => s.GpuC), GpuUtil = Avg(s => s.GpuUtil), CpuLoad = Avg(s => s.CpuLoad),
             Series = r.Series,
         };
