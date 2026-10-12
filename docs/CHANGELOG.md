@@ -1,6 +1,6 @@
 ﻿# Changelog
 
-## Unreleased
+## v0.1.0-beta.9
 
 ### Fixed
 - Turning Auto Game Boost off while it is active now stops the Game Boost it started (before, it kept running, GPU profile included, until STOP)
