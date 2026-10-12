@@ -644,5 +644,7 @@
   "Stable up to the maximum offset (+{0} MHz) without errors. Raise MAX OFFSET to look for more.": "Bis zum maximalen Offset (+{0} MHz) ohne Fehler stabil. MAX. OFFSET erhöhen, um weiterzusuchen.",
   "Limited by MAX OFFSET, not by the GPU: a higher MAX OFFSET may give a lower voltage.": "Begrenzt durch MAX. OFFSET, nicht durch die GPU: Mit höherem MAX. OFFSET ist evtl. eine niedrigere Spannung möglich.",
   "Limit found at +{0} MHz. Safety margin: using +{1} MHz.": "Grenze bei +{0} MHz gefunden. Sicherheitsabstand: +{1} MHz werden verwendet.",
-  "Stable at +{0} MHz, but {1} V is below the safe minimum of {2} V: stopping here.": "Stabil bei +{0} MHz, aber {1} V liegt unter dem sicheren Minimum von {2} V: Suche endet hier."
+  "Stable at +{0} MHz, but {1} V is below the safe minimum of {2} V: stopping here.": "Stabil bei +{0} MHz, aber {1} V liegt unter dem sicheren Minimum von {2} V: Suche endet hier.",
+  "Saved by an older version without safety margin: it may crash in games. Re-run the smart undervolt (MAX OFFSET up to 450).": "Von einer älteren Version ohne Sicherheitsabstand gespeichert: kann in Spielen abstürzen. Smart-Undervolt neu ausführen (MAX. OFFSET bis 450).",
+  "Stable at +{0} MHz. Safety margin: using +{1} MHz.": "Stabil bei +{0} MHz. Sicherheitsabstand: +{1} MHz werden verwendet."
 }

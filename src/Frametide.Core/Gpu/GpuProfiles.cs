@@ -24,6 +24,15 @@ public sealed class GpuProfile
     public double? VoltageDropMv { get; set; }
     public double? PowerSavedPct { get; set; }
     public double? MaxTemp { get; set; }
+
+    /// <summary>
+    /// Smart undervolt: how far below the last stable step the profile was saved. Null for profiles of older versions,
+    /// which were saved without a margin.
+    /// </summary>
+    public int? MarginMHz { get; set; }
+
+    /// <summary>Made by an older smart undervolt that saved the last stable step itself: may crash in games.</summary>
+    public bool SavedWithoutMargin() => StockAvgPowerW is not null && MarginMHz is null;
 }
 
 public static class GpuProfiles
@@ -44,11 +53,11 @@ public static class GpuProfiles
 
     public static GpuProfile? Find(string name) => All().FirstOrDefault(p => p.Name == name);
 
-    /// <summary>Adds or replaces (same name) a profile.</summary>
-    public static void Save(GpuProfile profile)
+    /// <summary>Adds or replaces (same name, or matching <paramref name="replaces"/>) a profile.</summary>
+    public static void Save(GpuProfile profile, Func<GpuProfile, bool>? replaces = null)
     {
         profile.Name = CleanName(profile.Name);
-        var list = All().Where(p => p.Name != profile.Name).Append(profile).ToList();
+        var list = All().Where(p => p.Name != profile.Name && replaces?.Invoke(p) != true).Append(profile).ToList();
         JsonFile.Write(AppPaths.GpuProfiles, new { Profiles = list });
         Changed?.Invoke();
     }

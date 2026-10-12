@@ -1,5 +1,15 @@
 ﻿# Changelog
 
+## Unreleased
+
+### Fixed
+- Turning Auto Game Boost off while it is active now stops the Game Boost it started (before, it kept running, GPU profile included, until STOP)
+
+### Changed
+- Smart undervolt always keeps one step of safety margin, also when it was stable up to MAX OFFSET: a profile at the last stable step can pass the stress test and still crash a game
+- Profiles from older versions saved without safety margin are marked on the GPU page with a re-test hint
+- A new smart undervolt result replaces earlier tests with the same result (unless Game Boost or the sign-in task uses them)
+
 ## v0.1.0-beta.8
 
 ### Fixed

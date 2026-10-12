@@ -370,14 +370,16 @@ public static class GpuTests
             }
             if (good is null) throw new InvalidOperationException(L.T("No stable undervolt step found. Your GPU already runs close to its limit at this clock."));
 
-            // REPLAY: the best step twice as long, one step lower if needed. When the search found the GPU's limit
-            // (computation errors, driver reset), one step of safety margin: games load the GPU differently.
+            // REPLAY: the best step twice as long, one step lower if needed. Always one step of safety margin below
+            // the last stable step: games load the GPU differently than the stress test (a profile at the last
+            // stable step passed the test and still crashed CS2).
             p.Phase = TestPhase.Replay;
             var final = good.Offset;
-            if (bad is { Thermal: false } && final - o.Step > 0)
+            if (final - o.Step > 0)
             {
                 final -= o.Step;
-                Say(p, "Limit found at +{0} MHz. Safety margin: using +{1} MHz.", good.Offset, final);
+                if (bad is { Thermal: false }) Say(p, "Limit found at +{0} MHz. Safety margin: using +{1} MHz.", good.Offset, final);
+                else Say(p, "Stable at +{0} MHz. Safety margin: using +{1} MHz.", good.Offset, final);
             }
             StressRound? replay = null;
             for (var attempt = 0; attempt < 3; attempt++)
@@ -404,9 +406,16 @@ public static class GpuTests
                 AvgPowerW = replay.AvgPower, AvgClock = replay.MedClock, Voltage = replay.Voltage, PowerSavedW = saved,
                 VoltageDropMv = stock.Voltage > 0 && replay.Voltage > 0 ? Math.Round((stock.Voltage - replay.Voltage) * 1000) : null,
                 PowerSavedPct = stock.AvgPower > 0 ? Math.Round(100 * saved / stock.AvgPower, 1) : 0, MaxTemp = p.MaxTemp,
+                MarginMHz = good.Offset - final,
             };
-            // Saved here, not by the page: the window may be closed to the tray while the test runs.
-            try { GpuProfiles.Save(result); }
+            // Saved here, not by the page: the window may be closed to the tray while the test runs. An earlier test
+            // with the same result is replaced, unless Game Boost or the sign-in task uses it.
+            var inUse = new HashSet<string> { Boost.BoostConfig.Load().GpuProfile, GpuTuning.SignInProfile };
+            try
+            {
+                GpuProfiles.Save(result, old => old.StockAvgPowerW is not null && old.Gpu == result.Gpu
+                    && old.MaxClock == result.MaxClock && old.OffsetMHz == result.OffsetMHz && !inUse.Contains(old.Name));
+            }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
                 throw new InvalidOperationException(L.T("The profile could not be saved: {0}", e.Message));
@@ -414,7 +423,7 @@ public static class GpuTests
             p.Result = result;
             p.Phase = TestPhase.Done;
             Say(p, "Done: {0} MHz at {1} V instead of {2} V. Power {3} W -> {4} W.", target, replay.Voltage, stock.Voltage, stock.AvgPower, replay.AvgPower);
-            if (bad is null && !floorReached && final == good.Offset && good.Offset + coarse <= MaxSafeOffset)
+            if (bad is null && !floorReached && good.Offset + coarse <= MaxSafeOffset)
             {
                 p.Status += " " + L.T("Limited by MAX OFFSET, not by the GPU: a higher MAX OFFSET may give a lower voltage.");
                 Log.Info("[GPU test] Limited by MAX OFFSET, not by the GPU.");

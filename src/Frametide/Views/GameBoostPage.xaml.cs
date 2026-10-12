@@ -52,7 +52,8 @@ public partial class GameBoostPage : UserControl
         AutoCheck.Click += async (_, _) =>
         {
             var on = AutoCheck.IsChecked == true;
-            await _main.RunAsync("Auto Game Boost", () => GameBoost.SetAutoBoost(on));
+            // Through the runner: turning it off may stop Game Boost, which must not overlap an automatic START.
+            if (!await BoostRunner.RunAsync(() => GameBoost.SetAutoBoost(on))) AutoCheck.IsChecked = BoostConfig.Load().AutoBoost;
         };
         TrayCheck.Click += (_, _) => App.CloseToTray = TrayCheck.IsChecked == true;
         AutostartCheck.Click += async (_, _) =>

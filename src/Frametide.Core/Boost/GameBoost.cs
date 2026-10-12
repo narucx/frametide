@@ -122,6 +122,13 @@ public static class GameBoost
             }
             if (on) LaunchPriority.EnablePersistent(cfg); else LaunchPriority.DisablePersistent();
             Log.Ok(on ? "Auto Game Boost enabled." : "Auto Game Boost disabled.");
+            // Auto mode would have stopped it after the game; turned off, nothing would: stop it now, so "off" means
+            // off (GPU profile included). A boost started by hand stays until STOP.
+            if (!on && State is { Auto: true })
+            {
+                Log.Info("Auto Game Boost turned off while it was active: stopping it.");
+                Stop();
+            }
         }
         Changed?.Invoke();
     }

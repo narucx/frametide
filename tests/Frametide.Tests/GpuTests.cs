@@ -59,6 +59,28 @@ public sealed class GpuProfileTests : IDisposable
     }
 
     [Fact]
+    public void Save_replaces_matching_profiles()
+    {
+        GpuProfiles.Save(new GpuProfile { Name = "Old", MaxClock = 2730, OffsetMHz = 300, StockAvgPowerW = 519 });
+        GpuProfiles.Save(new GpuProfile { Name = "Manual", MaxClock = 2730, OffsetMHz = 300 });
+        GpuProfiles.Save(new GpuProfile { Name = "New", MaxClock = 2730, OffsetMHz = 300, StockAvgPowerW = 538, MarginMHz = 30 },
+            old => old.StockAvgPowerW is not null && old.OffsetMHz == 300);
+        Assert.Equal(["Manual", "New"], GpuProfiles.All().Select(p => p.Name));
+    }
+
+    [Fact]
+    public void Only_older_smart_profiles_lack_a_margin()
+    {
+        File.WriteAllText(AppPaths.GpuProfiles, """
+            { "Profiles": [
+              { "Name": "Old", "MaxClock": 2730, "OffsetMHz": 300, "StockAvgPowerW": 519 },
+              { "Name": "New", "MaxClock": 2730, "OffsetMHz": 270, "StockAvgPowerW": 538, "MarginMHz": 30 },
+              { "Name": "Manual", "MaxClock": 2730, "OffsetMHz": 300 } ] }
+            """);
+        Assert.Equal(["Old"], GpuProfiles.All().Where(p => p.SavedWithoutMargin()).Select(p => p.Name));
+    }
+
+    [Fact]
     public void Broken_file_gives_no_profiles()
     {
         File.WriteAllText(AppPaths.GpuProfiles, "[1, 2");

@@ -341,6 +341,8 @@ public partial class GpuPage : UserControl
             var retest = _info is not null && GpuTuning.DriverChanged(p, _info);
             if (otherGpu) title += "  " + T("(made on another GPU, cannot be applied)");
             else if (retest) title += "  " + T("(driver changed, re-test recommended)");
+            var noMargin = p.SavedWithoutMargin();
+            if (noMargin) desc += Environment.NewLine + T("Saved by an older version without safety margin: it may crash in games. Re-run the smart undervolt (MAX OFFSET up to 450).");
             var name = p.Name;
             var right = new List<UIElement>
             {
@@ -358,7 +360,7 @@ public partial class GpuPage : UserControl
                     });
                 }, "Danger"),
             };
-            ProfileList.Children.Add(Row(active == p.Name ? "Good" : otherGpu || retest ? "Warn" : "Accent", title, desc, right, translate: false));
+            ProfileList.Children.Add(Row(active == p.Name ? "Good" : otherGpu || retest || noMargin ? "Warn" : "Accent", title, desc, right, translate: false));
         }
     }
 }
