@@ -40,6 +40,7 @@
           <ComboBox x:Name="GpuCombo" Grid.Row="1" Grid.Column="1" Width="320" HorizontalAlignment="Left" Margin="0,4"/>
           <StackPanel Grid.Row="2" Grid.Column="1" Margin="0,10,0,0">
             <CheckBox x:Name="GpuKeepCheck" Content="Keep GPU profile active after STOP" Margin="0,4"/>
+            <CheckBox x:Name="UpdatesCheck" Content="Pause Windows Update while playing (resumed after STOP, ends by itself if Frametide is closed)" Margin="0,4"/>
             <CheckBox x:Name="DnsCheck" Content="Flush DNS cache" Margin="0,4"/>
             <CheckBox x:Name="ShaderCheck" Content="Clear shader cache (not recommended, causes stutter while it rebuilds)" Margin="0,4"/>
           </StackPanel>

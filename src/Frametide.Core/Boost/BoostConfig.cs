@@ -38,6 +38,9 @@ public sealed partial class BoostConfig
     public bool FlushDns { get; set; }
     public bool ClearShaderCache { get; set; }
 
+    /// <summary>Pause Windows Update while Game Boost is active (see <see cref="UpdatePause"/>).</summary>
+    public bool PauseUpdates { get; set; }
+
     /// <summary>GPU profile applied on START ("" = none).</summary>
     public string GpuProfile { get; set; } = "";
 
@@ -47,7 +50,7 @@ public sealed partial class BoostConfig
     public bool AutoBoost { get; set; }
 
     private static readonly string[] Keys =
-        [nameof(Games), nameof(KillList), nameof(SuspendList), nameof(PowerPlan), nameof(FlushDns), nameof(ClearShaderCache), nameof(GpuProfile), nameof(GpuKeepAfterStop), nameof(AutoBoost)];
+        [nameof(Games), nameof(KillList), nameof(SuspendList), nameof(PowerPlan), nameof(FlushDns), nameof(ClearShaderCache), nameof(PauseUpdates), nameof(GpuProfile), nameof(GpuKeepAfterStop), nameof(AutoBoost)];
 
     public static BoostConfig Load()
     {

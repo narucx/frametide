@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## v0.1.0-beta.12
+
+### Added
+- Game Boost option "Pause Windows Update while playing" (off by default): no update scan, download or install starts during the game; resumed on STOP, and the pause ends by itself after a few hours if Frametide is not running
+
 ## v0.1.0-beta.11
 
 ### Added

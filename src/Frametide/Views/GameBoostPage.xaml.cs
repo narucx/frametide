@@ -68,6 +68,8 @@ public partial class GameBoostPage : UserControl
             _cfg.PowerPlan = plan;
             await SaveAsync();
         };
+        UpdatesCheck.IsChecked = _cfg.PauseUpdates;
+        UpdatesCheck.Click += async (_, _) => { _cfg.PauseUpdates = UpdatesCheck.IsChecked == true; await SaveAsync(); };
         DnsCheck.Click += async (_, _) => { _cfg.FlushDns = DnsCheck.IsChecked == true; await SaveAsync(); };
         ShaderCheck.Click += async (_, _) => { _cfg.ClearShaderCache = ShaderCheck.IsChecked == true; await SaveAsync(); };
         GpuKeepCheck.IsChecked = _cfg.GpuKeepAfterStop;

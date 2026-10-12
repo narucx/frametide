@@ -23,6 +23,7 @@ public sealed class BoostState
     public List<SuspendedProcess> Suspended { get; set; } = [];
     public bool GpuApplied { get; set; }
     public List<TunedProcess> Tuned { get; set; } = [];
+    public UpdatePauseState? UpdatePause { get; set; }
 
     /// <summary>Game process IDs already handled by the watcher.</summary>
     public List<int> Handled { get; set; } = [];
@@ -174,6 +175,20 @@ public static class GameBoost
             }
         }
 
+        if (cfg.PauseUpdates)
+        {
+            try
+            {
+                if (UpdatePause.Pause(DateTime.UtcNow, p => { state.UpdatePause = p; Save(state); }) is null)
+                    Log.Info("Windows Update is paused already (Windows settings), left as it is.");
+                else Log.Ok("Windows Update paused while playing.");
+            }
+            catch (Exception e) when (e is UnauthorizedAccessException or IOException or System.Security.SecurityException)
+            {
+                Log.Warn($"Pausing Windows Update failed: {e.Message}");
+            }
+        }
+
         // In auto mode the launch priorities are set permanently (see LaunchPriority).
         if (!cfg.AutoBoost)
         {
@@ -279,6 +294,17 @@ public static class GameBoost
                     else Log.Warn("Could not restore the power plan, it no longer exists.");
                 }
 
+                UpdatePauseState? pauseLeft = null;
+                if (state.UpdatePause is { } pause)
+                {
+                    try { UpdatePause.Resume(pause); }
+                    catch (Exception e) when (e is UnauthorizedAccessException or IOException or System.Security.SecurityException)
+                    {
+                        pauseLeft = pause;
+                        Log.Warn($"Resuming Windows Update failed: {e.Message} (the pause ends by itself at {UpdatePause.Parse(pause.Until)?.ToLocalTime():t}).");
+                    }
+                }
+
                 if (state.GpuApplied && !cfg.GpuKeepAfterStop)
                 {
                     try { GpuTuning.Reset(); GpuTuning.SetActive(""); Log.Ok("GPU reset to default."); }
@@ -289,7 +315,7 @@ public static class GameBoost
                 // Auto mode keeps launch priorities permanently: make sure they survive this STOP.
                 if (cfg.AutoBoost && state.Ifeo.Count > 0) LaunchPriority.EnablePersistent(cfg);
 
-                if (stillSuspended.Count == 0 && prevScheme is null && ifeoFailed.Count == 0)
+                if (stillSuspended.Count == 0 && prevScheme is null && ifeoFailed.Count == 0 && pauseLeft is null)
                 {
                     JsonFile.Delete(AppPaths.BoostState);
                     Log.Ok("Game Boost stopped.");
@@ -299,6 +325,7 @@ public static class GameBoost
                 state.Suspended = stillSuspended;
                 state.PrevScheme = prevScheme;
                 state.Ifeo = ifeoFailed;
+                state.UpdatePause = pauseLeft;
                 state.GpuApplied = false;
                 state.Tuned = [];
                 state.Handled = [];
@@ -352,9 +379,15 @@ public static class GameBoost
         {
             if (State is not { } state) return;
             var cfg = BoostConfig.Load();
+            var changed = false;
+            // Long sessions: the pause would end by itself after a few hours.
+            if (state.UpdatePause is { } pause)
+            {
+                try { changed = UpdatePause.Extend(pause, DateTime.UtcNow); }
+                catch (Exception e) when (e is UnauthorizedAccessException or IOException or System.Security.SecurityException) { }
+            }
             var viaLaunch = state.Ifeo.Concat(cfg.AutoBoost ? LaunchPriority.Persistent : [])
                 .Select(e => e.Exe).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var changed = false;
             foreach (var g in cfg.Games)
             {
                 foreach (var p in Process.GetProcessesByName(g.ProcessName))
