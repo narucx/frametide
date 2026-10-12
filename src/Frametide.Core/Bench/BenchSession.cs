@@ -36,6 +36,9 @@ public sealed class BenchSession
     public double? GpuC { get; set; }
     public double? GpuUtil { get; set; }
     public double? CpuLoad { get; set; }
+
+    /// <summary>Windows background jobs busy while playing (updates, virus scans, indexing).</summary>
+    public List<BackgroundJob>? Background { get; set; }
     public int[] Series { get; set; } = [];
 
     [JsonIgnore]

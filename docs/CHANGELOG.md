@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## v0.1.0-beta.11
+
+### Added
+- Benchmark sessions note when Windows was busy in the background while playing (Windows Update, virus scan, search indexing), with the minute it started
+
 ## v0.1.0-beta.10
 
 ### Fixed

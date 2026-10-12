@@ -117,4 +117,24 @@ public sealed class BenchmarkTests : IDisposable
         File.WriteAllBytes(unsigned, [0x4D, 0x5A, 0, 0]);
         Assert.False(Authenticode.IsSignedBy(unsigned, "Microsoft Corporation"));
     }
+
+    [Fact]
+    public void Background_job_counts_from_a_quarter_core()
+    {
+        var cpu = new Dictionary<string, TimeSpan>
+        {
+            ["Windows Update (installing)"] = TimeSpan.FromSeconds(1.5),
+            ["Search indexing"] = TimeSpan.FromSeconds(0.3),
+        };
+        Assert.Equal(["Windows Update (installing)"], BackgroundActivity.Busy(cpu, seconds: 3));
+    }
+
+    [Fact]
+    public void Background_jobs_are_summed_per_name()
+    {
+        var start = new DateTime(2026, 10, 12, 21, 0, 0);
+        (DateTime, IReadOnlyList<string>) At(double min, params string[] jobs) => (start.AddMinutes(min), jobs);
+        var jobs = BackgroundActivity.Summarize([At(1), At(24.5, "Windows Update"), At(24.6, "Windows Update", "Search indexing"), At(25, "Windows Update")], start, 3);
+        Assert.Equal([new BackgroundJob("Search indexing", 3, 24), new BackgroundJob("Windows Update", 9, 24)], jobs);
+    }
 }

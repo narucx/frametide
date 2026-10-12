@@ -188,6 +188,9 @@ public partial class BenchmarkPage : UserControl
         if (s.AnalysisVersion < FrameAnalysis.Version) desc += "\n" + T("Recorded with the first version: stutters were counted more strictly (loading screens included).");
         if (s.ExcludedSec > 0) desc += "\n" + T("Left out: {0} s outside the game ({1}x alt-tab).", s.ExcludedSec, s.TabOuts ?? 0);
         if (s.Limits is { Count: > 0 } limits) desc += "\n" + T("FPS limit: {0}", FormatLimits(limits));
+        if (s.Background is { Count: > 0 } jobs)
+            desc += "\n" + T("Windows was busy in the background: {0}", string.Join(", ", jobs.Select(j =>
+                T("{0} ({1} from minute {2})", T(j.Name), j.Seconds < 60 ? $"{j.Seconds} s" : $"{Math.Round(j.Seconds / 60.0)} min", j.FromMinute))));
 
         var spark = Sparkline(s.Series);
         if (s.Series.Length > 1) spark.ToolTip = T("FPS over the session (max {0})", s.Series.Max());

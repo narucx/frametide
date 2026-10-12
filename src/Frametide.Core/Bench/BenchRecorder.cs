@@ -29,12 +29,13 @@ public sealed class BenchRecorder : IDisposable
 {
     public const int MinSeconds = 60;
 
-    private sealed record Sample(bool Focused, bool Boost, string GpuTune, double? GpuW, double? GpuMHz, double? GpuC, double? GpuUtil, double? CpuLoad);
+    private sealed record Sample(DateTime At, IReadOnlyList<string> Background, bool Focused, bool Boost, string GpuTune, double? GpuW, double? GpuMHz, double? GpuC, double? GpuUtil, double? CpuLoad);
 
     private readonly Lock _gate = new();
     private readonly List<Sample> _samples = [];
     private readonly HashSet<string> _tried = [];
     private readonly CpuMonitor _cpu = new();
+    private BackgroundActivity _background = new();
     private FocusTracker? _focus;
     private string? _liveId;
     private DateTime _retryAt;
@@ -115,16 +116,17 @@ public sealed class BenchRecorder : IDisposable
         FocusTracker focus;
         lock (_gate)
         {
-            if (_focus is null || _liveId != rec.Id) { _focus = new FocusTracker(rec.Exe); _liveId = rec.Id; _samples.Clear(); }
+            if (_focus is null || _liveId != rec.Id) { _focus = new FocusTracker(rec.Exe); _liveId = rec.Id; _samples.Clear(); _background = new(); }
             focus = _focus;
         }
         focus.UpdatePids();
         var gpu = Nvidia.GetSnapshot();
         var cpu = _cpu.Sample();
+        var background = _background.Sample();
         // The GPU profile while playing: Game Boost STOP resets it before the session is summarized.
         var tune = gpu is { OffsetMHz: not 0 } ? Settings.GetString("ActiveGpuTune", "") : "";
         lock (_gate)
-            _samples.Add(new Sample(focus.Focused, GameBoost.IsActive, tune, gpu?.PowerW, gpu?.ClockMHz, gpu?.TempC, gpu?.Util, cpu?.Load));
+            _samples.Add(new Sample(DateTime.Now, background, focus.Focused, GameBoost.IsActive, tune, gpu?.PowerW, gpu?.ClockMHz, gpu?.TempC, gpu?.Util, cpu?.Load));
 
         // Safety net: PresentMon waits for the game; if the game is gone for 20 s, end the recording.
         if (gameRunning) return null;
@@ -180,6 +182,7 @@ public sealed class BenchRecorder : IDisposable
 
         var focused = samples.Where(s => s.Focused).ToList();
         double? Avg(Func<Sample, double?> pick) => focused.Select(pick).OfType<double>().ToList() is { Count: > 0 } v ? Math.Round(v.Average(), 1) : null;
+        var interval = samples.Count > 1 ? (samples[^1].At - samples[0].At).TotalSeconds / (samples.Count - 1) : 0;
         var boostShare = samples.Count > 0 ? samples.Count(s => s.Boost) / (double)samples.Count : rec.BoostExpected ? 1 : 0;
         var session = new BenchSession
         {
@@ -191,11 +194,14 @@ public sealed class BenchRecorder : IDisposable
             ExcludedSec = Math.Round(r.ExcludedSec), TabOuts = away.Count, Limits = rec.Limits,
             Boost = boostShare >= 0.5, GpuProfile = focused.Where(s => s.GpuTune.Length > 0).GroupBy(s => s.GpuTune).MaxBy(g => g.Count())?.Key ?? "",
             GpuW = Avg(s => s.GpuW), GpuMHz = Avg(s => s.GpuMHz), GpuC = Avg(s => s.GpuC), GpuUtil = Avg(s => s.GpuUtil), CpuLoad = Avg(s => s.CpuLoad),
+            Background = BackgroundActivity.Summarize([.. focused.Select(s => (s.At, s.Background))], rec.Start, Math.Min(interval, 10)),
             Series = r.Series,
         };
         BenchStore.Save(session);
         RemoveRaw(rec);
         Log.Info($"Benchmark: time column '{r.TimeColumn}', {away.Count} alt-tab interval(s), {r.ExcludedSec:N0} s left out.");
+        if (session.Background is { Count: > 0 } jobs)
+            Log.Info($"Benchmark: Windows background activity while playing: {string.Join(", ", jobs.Select(j => $"{j.Name} {j.Seconds} s from minute {j.FromMinute}"))}.");
         Log.Ok($"Benchmark {rec.Game}: {r.AvgFps:N0} FPS avg, 1% low {r.Low1:N0}, 0.1% low {r.Low01:N0} ({r.DurationSec / 60:N0} min, {(session.Boost ? "with" : "without")} Game Boost).");
         return session;
     }
