@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## v0.1.0-beta.13
+
+### Added
+- Games in the Game Boost list can be renamed: click the name (benchmark sessions of the game follow the new name)
+
 ## v0.1.0-beta.12
 
 ### Added

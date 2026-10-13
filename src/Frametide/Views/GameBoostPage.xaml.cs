@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using Frametide.Core.Bench;
 using Frametide.Core.Boost;
 using Frametide.Core.Gpu;
 using Frametide.Core.Hardware;
@@ -184,8 +185,45 @@ public partial class GameBoostPage : UserControl
                 ShowGames();
                 await SaveAsync();
             });
-            GameList.Children.Add(Row("Accent", g.Name, g.Exe, [prio, aff, remove], "0,0,0,8", translate: false));
+            var row = Row("Accent", g.Name, g.Exe, [prio, aff, remove], "0,0,0,8", translate: false);
+            var title = (TextBlock)row.Children.OfType<StackPanel>().First().Children[0];
+            title.Cursor = Cursors.IBeam;
+            title.ToolTip = T("Click to rename");
+            title.MouseLeftButtonUp += (_, _) => Rename(g, title);
+            GameList.Children.Add(row);
         }
+    }
+
+    /// <summary>Swaps the name for a text box: Enter or leaving the box saves, Escape cancels.</summary>
+    private void Rename(GameEntry g, TextBlock title)
+    {
+        var panel = (Panel)title.Parent;
+        var box = new TextBox { Text = g.Name, MaxLength = 60, FontSize = title.FontSize, MinWidth = 220, HorizontalAlignment = HorizontalAlignment.Left };
+        var index = panel.Children.IndexOf(title);
+        panel.Children.RemoveAt(index);
+        panel.Children.Insert(index, box);
+        var done = false;
+        async Task Finish(bool save)
+        {
+            if (done) return;
+            done = true;
+            var name = box.Text.Trim();
+            if (save && name.Length > 0 && name != g.Name)
+            {
+                g.Name = name;
+                await SaveAsync();
+                var exe = g.Exe;
+                await _main.RunAsync("Saving", () => BenchStore.RenameGame(exe, name));
+            }
+            ShowGames();
+        }
+        box.KeyDown += async (_, e) =>
+        {
+            if (e.Key == Key.Enter) await Finish(true);
+            else if (e.Key == Key.Escape) await Finish(false);
+        };
+        box.LostKeyboardFocus += async (_, _) => await Finish(true);
+        box.Loaded += (_, _) => { box.Focus(); box.SelectAll(); };
     }
 
     private ComboBox Combo<TValue>((string Text, TValue Value)[] options, TValue current, Action<TValue> set)

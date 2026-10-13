@@ -105,6 +105,9 @@ public sealed class BenchmarkTests : IDisposable
         BenchStore.Delete(@"..\..\config");                 // not a session ID: ignored
         BenchStore.Delete("20260101-200000");
         Assert.Equal(2, BenchStore.Sessions().Count);
+
+        BenchStore.RenameGame("G.EXE", "My game");
+        Assert.All(BenchStore.Sessions(), s => Assert.Equal("My game", s.Game));
     }
 
     [Fact]

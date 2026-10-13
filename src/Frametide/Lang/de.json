@@ -656,5 +656,6 @@
   "Windows Update": "Windows Update",
   "Windows Update (installing)": "Windows Update (Installation)",
   "Windows was busy in the background: {0}": "Windows war im Hintergrund beschäftigt: {0}",
-  "Pause Windows Update while playing (resumed after STOP, ends by itself if Frametide is closed)": "Windows Update beim Spielen pausieren (nach STOP fortgesetzt, endet von selbst, wenn Frametide geschlossen ist)"
+  "Pause Windows Update while playing (resumed after STOP, ends by itself if Frametide is closed)": "Windows Update beim Spielen pausieren (nach STOP fortgesetzt, endet von selbst, wenn Frametide geschlossen ist)",
+  "Click to rename": "Zum Umbenennen klicken"
 }

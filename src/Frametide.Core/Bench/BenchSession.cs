@@ -94,6 +94,19 @@ public static class BenchStore
         Changed?.Invoke();
     }
 
+    /// <summary>A game was renamed in the Game Boost list: its sessions follow, so the comparison stays in one place.</summary>
+    public static void RenameGame(string exe, string name)
+    {
+        var changed = false;
+        foreach (var s in Sessions().Where(s => s.Exe.Equals(exe, StringComparison.OrdinalIgnoreCase) && s.Game != name))
+        {
+            s.Game = name;
+            JsonFile.Write(Path.Combine(SessionsDir, $"{s.Id}.json"), s);
+            changed = true;
+        }
+        if (changed) Changed?.Invoke();
+    }
+
     /// <summary>Session IDs are timestamps (yyyyMMdd-HHmmss); anything else is not a file name Frametide created.</summary>
     internal static bool IsValidId(string id) => id.Length > 0 && id.All(c => char.IsAsciiDigit(c) || c == '-');
 
